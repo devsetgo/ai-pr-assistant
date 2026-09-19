@@ -2,6 +2,10 @@ name: AI PR Assistant
 
 on: pull_request
 
+permissions:
+  contents: read
+  issues: write   # description/title updates go through the issues endpoint, per GitHub's REST reference
+
 jobs:
   ai-pr-assistant:
     runs-on: ubuntu-latest
