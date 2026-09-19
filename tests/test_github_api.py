@@ -143,3 +143,41 @@ def test_add_labels_raises_when_request_fails(client):
 
     with pytest.raises(GitHubApiError):
         client.add_labels(42, ["bug"])
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda c: c.get_pull_request(42),
+        lambda c: c.get_pull_request_files(42),
+        lambda c: c.list_label_names(),
+        lambda c: c.update_description(42, "body"),
+        lambda c: c.add_labels(42, ["bug"]),
+    ],
+)
+def test_errors_include_the_response_body(client, call):
+    body = '{"message": "Resource not accessible by integration"}'
+    for method in ("get", "post", "patch"):
+        getattr(client.session, method).return_value = _response(
+            status_code=403, text=body
+        )
+
+    with pytest.raises(GitHubApiError, match="Resource not accessible by integration"):
+        call(client)
+
+
+def test_create_label_error_includes_the_response_body(client):
+    client.session.get.return_value = _response(json_data=[])
+    client.session.post.return_value = _response(status_code=403, text="no permission")
+
+    with pytest.raises(GitHubApiError, match="no permission"):
+        client.ensure_labels_exist(["bug"])
+
+
+def test_error_body_is_truncated(client):
+    client.session.get.return_value = _response(status_code=502, text="x" * 5000)
+
+    with pytest.raises(GitHubApiError) as excinfo:
+        client.get_pull_request(42)
+
+    assert len(str(excinfo.value)) < 700

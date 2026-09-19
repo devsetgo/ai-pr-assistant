@@ -23,6 +23,21 @@ class GitHubApiError(RuntimeError):
     """Raised when a GitHub API request fails (a non-2xx response)."""
 
 
+#: Longest response body included in an error message, so an HTML error page
+#: from a proxy can't flood the Actions log.
+_MAX_ERROR_BODY_CHARS = 500
+
+
+def _error_detail(response: requests.Response) -> str:
+    """Status code plus the (truncated) response body, for actionable errors.
+
+    GitHub's JSON error body says *why* (e.g. "Resource not accessible by
+    integration" for a 403 caused by missing token permissions), which the
+    bare status code doesn't.
+    """
+    return f"{response.status_code}. Response: {response.text[:_MAX_ERROR_BODY_CHARS]}"
+
+
 def _build_session() -> requests.Session:
     """Build a :class:`requests.Session` that retries transient failures.
 
@@ -98,7 +113,7 @@ class GitHubClient:
         response = self.session.get(self._pulls_url(pull_request_id))
         if not response.ok:
             raise GitHubApiError(
-                f"Request to get pull request data failed: {response.status_code}"
+                f"Request to get pull request data failed: {_error_detail(response)}"
             )
         return response.json()
 
@@ -119,7 +134,7 @@ class GitHubClient:
             if not response.ok:
                 raise GitHubApiError(
                     "Request to get list of files failed with error code: "
-                    f"{response.status_code}"
+                    f"{_error_detail(response)}"
                 )
             files.extend(response.json())
             url = response.links.get("next", {}).get("url")
@@ -146,8 +161,7 @@ class GitHubClient:
         response = self.session.patch(self._issues_url(pull_request_id), json=payload)
         if not response.ok:
             raise GitHubApiError(
-                f"Request to update pull request failed: {response.status_code}. "
-                f"Response: {response.text}"
+                f"Request to update pull request failed: {_error_detail(response)}"
             )
 
     def list_label_names(self) -> set[str]:
@@ -162,7 +176,7 @@ class GitHubClient:
             response = self.session.get(url)
             if not response.ok:
                 raise GitHubApiError(
-                    f"Request to list labels failed: {response.status_code}"
+                    f"Request to list labels failed: {_error_detail(response)}"
                 )
             names.update(label["name"] for label in response.json())
             url = response.links.get("next", {}).get("url")
@@ -195,7 +209,7 @@ class GitHubClient:
             # workflow run) between the check above and this request.
             if not response.ok and response.status_code != 422:
                 raise GitHubApiError(
-                    f"Request to create label '{label}' failed: {response.status_code}"
+                    f"Request to create label '{label}' failed: {_error_detail(response)}"
                 )
 
     def add_labels(self, pull_request_id: int, labels: list[str]) -> None:
@@ -215,5 +229,5 @@ class GitHubClient:
         )
         if not response.ok:
             raise GitHubApiError(
-                f"Request to add labels failed: {response.status_code}"
+                f"Request to add labels failed: {_error_detail(response)}"
             )

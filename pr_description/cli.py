@@ -18,6 +18,8 @@ import argparse
 import os
 import sys
 
+import openai
+
 from . import diff_filter, llm
 from .github_api import GitHubApiError, GitHubClient
 
@@ -66,12 +68,6 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--openai-api-key", type=str, required=True, help="The OpenAI API key"
     )
-    parser.add_argument(
-        "--allowed-users",
-        type=str,
-        required=False,
-        help="A comma-separated list of GitHub usernames that are allowed to trigger the action",
-    )
     return parser.parse_args(argv)
 
 
@@ -89,19 +85,19 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = _parse_args(argv)
 
-    allowed_users_csv = os.environ.get("INPUT_ALLOWED_USERS", "")
-    allowed_users: list[str] = (
-        [user for user in allowed_users_csv.split(",") if user]
-        if allowed_users_csv
-        else []
-    )
+    # GitHub logins are case-insensitive, and people write "alice, bob".
+    allowed_users: list[str] = [
+        user.strip().lower()
+        for user in os.environ.get("INPUT_ALLOWED_USERS", "").split(",")
+        if user.strip()
+    ]
 
     open_ai_model = os.environ.get("INPUT_OPENAI_MODEL", "gpt-5-mini")
     max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "2000"))
     temperature = float(os.environ.get("INPUT_TEMPERATURE", "0.6"))
-    sample_prompt = os.environ.get("INPUT_MODEL_SAMPLE_PROMPT") or llm.SAMPLE_PROMPT
+    sample_prompt = os.environ.get("INPUT_SAMPLE_PROMPT") or llm.SAMPLE_PROMPT
     sample_response = (
-        os.environ.get("INPUT_MODEL_SAMPLE_RESPONSE") or llm.GOOD_SAMPLE_RESPONSE
+        os.environ.get("INPUT_SAMPLE_RESPONSE") or llm.GOOD_SAMPLE_RESPONSE
     )
     completion_prompt_template = (
         os.environ.get("INPUT_COMPLETION_PROMPT") or llm.COMPLETION_PROMPT
@@ -148,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if allowed_users:
         pr_author = pull_request_data["user"]["login"]
-        if pr_author not in allowed_users:
+        if pr_author.lower() not in allowed_users:
             print(
                 f"Pull request author {pr_author} is not allowed to trigger this action"
             )
@@ -169,18 +165,22 @@ def main(argv: list[str] | None = None) -> int:
     client = llm.build_client(args.openai_api_key, azure_endpoint, azure_api_version)
     structured = generate_title or enable_labels or detect_breaking_changes
 
-    content = llm.generate_pr_content(
-        client,
-        open_ai_model,
-        pull_request_title,
-        completion_prompt,
-        structured=structured,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        sample_prompt=sample_prompt,
-        sample_response=sample_response,
-        label_taxonomy=label_taxonomy,
-    )
+    try:
+        content = llm.generate_pr_content(
+            client,
+            open_ai_model,
+            pull_request_title,
+            completion_prompt,
+            structured=structured,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            sample_prompt=sample_prompt,
+            sample_response=sample_response,
+            label_taxonomy=label_taxonomy,
+        )
+    except openai.OpenAIError as error:
+        print(f"OpenAI request failed: {error}")
+        return 1
 
     description = content["description"]
     if not description.strip():

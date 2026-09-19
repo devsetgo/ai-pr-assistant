@@ -68,7 +68,7 @@ jobs:
 | Input                   | Description                                                             | Default                 |
 | ----------------------- | ------------------------------------------------------------------------ | ------------------------ |
 | `pull_request_id`       | The ID of the pull request to use                                        | Extracted from metadata |
-| `allowed_users`         | Comma-separated GitHub usernames this Action will run for; empty runs for everyone | `` (all users) |
+| `allowed_users`         | Comma-separated GitHub usernames this Action will run for (case-insensitive, spaces ignored); empty runs for everyone | `` (all users) |
 | `overwrite_description` | Overwrite the PR description if it already exists (also means the Action runs on every PR update, not just when the description is empty) | `false` |
 | `openai_model`          | The [OpenAI model] to use, any model compatible with the chat completions endpoint | `gpt-5-mini` |
 | `temperature`           | Higher values make the model more creative (0-2). **Ignored for reasoning models** (`gpt-5*`, `o1*`, `o3*`, `o4*`), which only support the default temperature | `0.6` |

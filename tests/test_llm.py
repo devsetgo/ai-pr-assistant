@@ -135,6 +135,38 @@ def test_generate_pr_content_falls_back_when_structured_output_rejected():
     assert client.chat.completions.create.call_count == 2
 
 
+@pytest.mark.parametrize(
+    "unusable_reply",
+    [
+        "",  # reasoning model spent the whole budget before writing anything
+        '{"description": "cut off mid-sentenc',  # truncated at max_tokens
+    ],
+)
+def test_generate_pr_content_falls_back_when_structured_reply_is_not_json(
+    unusable_reply,
+):
+    client = MagicMock()
+    client.chat.completions.create.side_effect = [
+        _mock_response(unusable_reply),
+        _mock_response("Plain text description"),
+    ]
+
+    result = llm.generate_pr_content(
+        client,
+        "gpt-5-mini",
+        "Some title",
+        "some diff",
+        structured=True,
+        label_taxonomy=["bug"],
+    )
+
+    assert result["description"] == "Plain text description"
+    assert result["title"] is None
+    first_call, second_call = client.chat.completions.create.call_args_list
+    assert "response_format" in first_call.kwargs
+    assert "response_format" not in second_call.kwargs
+
+
 def test_build_client_uses_openai_when_no_azure_endpoint(monkeypatch):
     openai_client = object()
     mock_openai = MagicMock(return_value=openai_client)

@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import openai
 import pytest
 
 from pr_description import cli
@@ -82,6 +83,49 @@ def test_proceeds_when_author_is_allowed(
     assert cli.main(BASE_ARGV) == 0
 
     github_client.update_description.assert_called_once_with(42, "Adds a feature")
+
+
+@pytest.mark.parametrize(
+    ("allowed_users", "author"),
+    [
+        ("alice, bob", "bob"),  # spaces after the commas
+        ("ALICE", "alice"),  # GitHub logins are case-insensitive
+        ("bob,alice", "Alice"),
+    ],
+)
+def test_allowed_users_ignores_spaces_and_case(
+    monkeypatch, github_client, generate_pr_content, allowed_users, author
+):
+    github_client.get_pull_request.return_value["user"]["login"] = author
+    monkeypatch.setenv("INPUT_ALLOWED_USERS", allowed_users)
+
+    assert cli.main(BASE_ARGV) == 0
+
+    github_client.update_description.assert_called_once()
+
+
+def test_custom_sample_prompt_and_response_reach_the_model(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_SAMPLE_PROMPT", "my example prompt")
+    monkeypatch.setenv("INPUT_SAMPLE_RESPONSE", "my example response")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    kwargs = generate_pr_content.call_args.kwargs
+    assert kwargs["sample_prompt"] == "my example prompt"
+    assert kwargs["sample_response"] == "my example response"
+
+
+def test_returns_error_when_openai_request_fails(
+    capsys, github_client, generate_pr_content
+):
+    generate_pr_content.side_effect = openai.OpenAIError("quota exceeded")
+
+    assert cli.main(BASE_ARGV) == 1
+
+    assert "OpenAI request failed: quota exceeded" in capsys.readouterr().out
+    github_client.update_description.assert_not_called()
 
 
 def test_happy_path_updates_description(github_client, generate_pr_content):
@@ -219,27 +263,7 @@ def _action_input_names() -> list[str]:
     return names
 
 
-# Known bug (TODO_TASKS.md, "Correctness / simplification"): cli.py reads
-# INPUT_MODEL_SAMPLE_PROMPT/RESPONSE, but action.yml names the inputs
-# sample_prompt/sample_response, so they are silently ignored. strict=True makes
-# this XPASS-fail once fixed, prompting removal of the marker.
-_KNOWN_UNREAD_INPUTS = {"sample_prompt", "sample_response"}
-
-
-@pytest.mark.parametrize(
-    "input_name",
-    [
-        pytest.param(
-            name,
-            marks=pytest.mark.xfail(
-                strict=True, reason="cli.py reads INPUT_MODEL_SAMPLE_* instead"
-            ),
-        )
-        if name in _KNOWN_UNREAD_INPUTS
-        else name
-        for name in _action_input_names()
-    ],
-)
+@pytest.mark.parametrize("input_name", _action_input_names())
 def test_every_action_input_is_read_by_the_code(input_name):
     """action.yml exposes each input to the container as INPUT_<NAME>; if nothing
     reads that exact variable the input is silently dead."""

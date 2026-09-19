@@ -329,8 +329,9 @@ def generate_pr_content(
     In structured mode, a JSON-schema-constrained request is made first
     (see :data:`PR_CONTENT_SCHEMA`); if the API rejects it with a
     :class:`openai.BadRequestError` (e.g. an older Azure deployment/API
-    version without structured-output support), this falls back once to the
-    classic plain-text request rather than failing the whole run.
+    version without structured-output support), or the reply is not valid
+    JSON (e.g. truncated), this falls back once to the classic plain-text
+    request rather than failing the whole run.
 
     Args:
         client: A client from :func:`build_client`.
@@ -386,10 +387,14 @@ def generate_pr_content(
                 "breaking_change": bool(payload.get("breaking_change")),
                 "breaking_change_notes": payload.get("breaking_change_notes") or None,
             }
-        except openai.BadRequestError:
+        except (openai.BadRequestError, json.JSONDecodeError):
+            # BadRequestError: the API rejected structured output outright.
+            # JSONDecodeError: it accepted it but the reply wasn't valid JSON -
+            # typically empty or cut off because a reasoning model spent its
+            # whole max_tokens budget before finishing the object.
             logger.warning(
-                "Structured PR content request was rejected by the API, "
-                "falling back to a plain-text description"
+                "Structured PR content request was rejected or returned invalid "
+                "JSON, falling back to a plain-text description"
             )
 
     response = client.chat.completions.create(
