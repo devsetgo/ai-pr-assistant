@@ -1,0 +1,34 @@
+# Basic dependabot.yml file with
+# minimum configuration for two package managers
+
+version: 2
+updates:
+  # Enable version updates for pip
+  - package-ecosystem: "pip"
+    # Look for `requirements`in directory
+    directory: "/"
+    # Check the pypi for updates
+    labels:
+      - "pip"
+      - "dependencies"
+    commit-message:
+      # Prefix all commit messages with "pip"
+      prefix: "pip"
+      include: "scope"
+    schedule:
+      interval: "monthly"
+      day: "saturday"
+      timezone: "America/New_York"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    labels:
+      - "github actions"
+      - "dependencies"
+    commit-message:
+      # Prefix all commit messages with "github-actions"
+      prefix: "github-actions"
+      include: "scope"
+    schedule:
+      interval: "monthly"
+      day: "saturday"
+      timezone: "America/New_York"

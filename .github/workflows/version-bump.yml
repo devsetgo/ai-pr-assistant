@@ -1,0 +1,58 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'What kind of bump to make'
+        required: true
+        default: 'build'
+        type: choice
+        options:
+          - build
+          - beta
+          - rc
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - run: pip install bumpcalver
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          case "${{ inputs.bump_type }}" in
+            build) FLAG="--build" ;;
+            beta) FLAG="--beta" ;;
+            rc) FLAG="--rc" ;;
+          esac
+          RESULT=$(bumpcalver $FLAG --json)
+          echo "$RESULT"
+          VERSION=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Push commit and tag
+        run: |
+          git push origin HEAD
+          git push origin "${{ steps.bump.outputs.version }}"
+
+      - name: Summary
+        run: echo "Bumped to version **${{ steps.bump.outputs.version }}**" >> "$GITHUB_STEP_SUMMARY"

@@ -16,3 +16,9 @@ jobs:
           python-version: '3.14'
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-html
+          path: htmlcov/
+          retention-days: 14
