@@ -21,6 +21,11 @@ path = "pr_description/__init__.py"
 file_type = "python"
 variable = "__version__"
 
+[[tool.bumpcalver.file]]
+path = "sonar-project.properties"
+file_type = "properties"
+variable = "sonar.projectVersion"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=pr_description --cov-report=term-missing --cov-report=html"
