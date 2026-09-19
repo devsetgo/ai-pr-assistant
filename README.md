@@ -70,6 +70,7 @@ That's it — every new pull request without a description will get one.
 
 ## Documentation
 
+- [**GitHub Pages site**](https://devsetgo.github.io/ai-pr-assistant/) — published docs built with Zensical
 - [**Configuration reference**](docs/CONFIGURATION.md) — every input, defaults,
   classic vs. structured mode, and required permissions
 - [**Troubleshooting**](docs/TROUBLESHOOTING.md) — the `403` error, missing

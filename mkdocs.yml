@@ -1,0 +1,23 @@
+site_name: AI PR Assistant
+site_description: Generate pull request descriptions, titles, and labels using OpenAI.
+site_url: https://devsetgo.github.io/ai-pr-assistant/
+repo_name: devsetgo/ai-pr-assistant
+repo_url: https://github.com/devsetgo/ai-pr-assistant
+
+docs_dir: docs
+site_dir: site
+
+nav:
+  - Home: index.md
+  - Configuration: CONFIGURATION.md
+  - Troubleshooting: TROUBLESHOOTING.md
+  - Migrating: MIGRATING.md
+
+theme:
+  variant: classic
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight
+  - pymdownx.superfences
