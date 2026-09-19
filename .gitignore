@@ -135,3 +135,7 @@ dmypy.json
 
 # Local working file written by the dsg-* skills
 TODO_TASKS.md
+
+# bumpcalver local undo data (backups + history with absolute local paths)
+.bumpcalver/
+bumpcalver-history.json
