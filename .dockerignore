@@ -1,0 +1,11 @@
+# Send the Docker daemon only what the Dockerfile COPYs, so nothing else
+# (.env, .git, build output, docs, tests, ...) can end up in the build context.
+# If the Dockerfile ever COPYs another path, re-include it here.
+*
+!entrypoint.sh
+!autofill_description.py
+!pr_description
+!requirements.txt
+
+**/__pycache__
+**/*.py[cod]

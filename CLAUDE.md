@@ -57,6 +57,8 @@ docker build -t ai-pr-assistant .
 make bump-preview                      # dry run: shows the next version + changelog entry
 make bump                              # commit + tag locally (BUMP=beta / BUMP=rc for pre-releases); needs a clean
                                        # tree, loads OPENAI_API_KEY from .env for the changelog; pushes nothing
+make git-cleanup                       # fetch --prune, then force-delete local branches whose upstream is gone
+                                       # (never main/master/dev or the current branch)
 ```
 
 Ruff is the only lint/format tool (`.pre-commit-config.yaml` pins its version; keep it in sync with
@@ -114,8 +116,13 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
   produce.
 - There is deliberately no version-bump workflow: `make bump` runs `bumpcalver` locally, creating the commit and
   tag; pushing them (`git push origin HEAD <tag>`) is a separate, manual step (`bumpcalver` does not push).
-- `.github/workflows/pr-description.yml` — dogfoods the Action on this repo's own PRs.
+- `.github/workflows/ai_pr_assistant.yml` — dogfoods the Action on this repo's own PRs (every input listed).
+- `.github/workflows/docs.yml` — regenerates `docs/index.md` from the README, builds the Zensical site
+  (`zensical build --clean --strict`) and deploys it to GitHub Pages.
 - `.github/dependabot.yaml` — pip + github-actions, monthly.
+
+`docs/CHANGELOG.md` is a symlink to the root `CHANGELOG.md` (bumpcalver writes the root file), so the docs
+site's Changelog page never goes stale.
 
 `pyproject.toml`'s `[tool.bumpcalver]` targets three files that must stay in sync when the version
 format changes: `pyproject.toml` (`project.version`), `pr_description/__init__.py` (`__version__`),

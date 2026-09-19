@@ -101,6 +101,10 @@ bump: ## Bump the CalVer version + changelog, commit and tag locally (BUMP=build
 clean: ## Remove common generated artifacts
 	rm -rf htmlcov .pytest_cache .mypy_cache coverage.xml report.xml
 
+# `git branch -D` (force) is deliberate: a squash-merged branch's commits never appear in
+# main's history, so `-d` would refuse to delete every branch merged that way. The cost is
+# that a branch with unpushed local commits is lost if its remote branch was deleted (only
+# recoverable via `git reflog`). main/master/dev and the checked-out branch are never touched.
 git-cleanup: ## Fetch + prune from origin, then delete local branches whose upstream is gone
 	@echo "Fetching from origin and pruning stale remote-tracking branches..."
 	git fetch origin --prune

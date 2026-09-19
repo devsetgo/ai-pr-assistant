@@ -89,10 +89,7 @@ That's it — every new pull request without a description will get one.
 
 ## Demo
 
-The examples below are from the upstream project this was inspired by, prior
-to the rename and the features described above:
-
-coming soon
+Coming soon.
 
 ## License
 
