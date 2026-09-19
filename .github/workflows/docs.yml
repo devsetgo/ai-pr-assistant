@@ -1,18 +1,9 @@
 name: Documentation
 
 "on":
-  pull_request:
-    paths:
-      - docs/**
-      - mkdocs.yml
-      - .github/workflows/docs.yml
-  push:
-    branches:
-      - master
-    paths:
-      - docs/**
-      - mkdocs.yml
-      - .github/workflows/docs.yml
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
@@ -33,10 +24,11 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install -r requirements-dev.txt
+      - run: python scripts/sync_docs_index.py
       - run: zensical build --clean --strict
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -49,6 +41,7 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install -r requirements-dev.txt
+      - run: python scripts/sync_docs_index.py
       - run: zensical build --clean --strict
       - uses: actions/upload-pages-artifact@v5
         with:

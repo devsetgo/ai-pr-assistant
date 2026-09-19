@@ -16,7 +16,7 @@ Update your workflow's `uses:` line:
 
 ```diff
 - uses: platisd/openai-pr-description@master
-+ uses: devsetgo/ai-pr-assistant@master
++ uses: devsetgo/ai-pr-assistant@main
 ```
 
 (GitHub redirects the renamed `devsetgo/openai-pr-description` repository

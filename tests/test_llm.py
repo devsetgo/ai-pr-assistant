@@ -28,12 +28,16 @@ def test_is_reasoning_model_override_wins():
 
 
 def test_completion_kwargs_for_reasoning_model_omits_temperature():
-    kwargs = llm._completion_kwargs("gpt-5-mini", temperature=0.6, max_tokens=500, reasoning_override=None)
+    kwargs = llm._completion_kwargs(
+        "gpt-5-mini", temperature=0.6, max_tokens=500, reasoning_override=None
+    )
     assert kwargs == {"max_completion_tokens": 500}
 
 
 def test_completion_kwargs_for_classic_model_includes_temperature():
-    kwargs = llm._completion_kwargs("gpt-4o-mini", temperature=0.6, max_tokens=500, reasoning_override=None)
+    kwargs = llm._completion_kwargs(
+        "gpt-4o-mini", temperature=0.6, max_tokens=500, reasoning_override=None
+    )
     assert kwargs == {"max_tokens": 500, "temperature": 0.6}
 
 
@@ -147,7 +151,9 @@ def test_build_client_uses_azure_client_when_endpoint_set(monkeypatch):
     mock_azure = MagicMock(return_value=azure_client)
     monkeypatch.setattr(llm.openai, "AzureOpenAI", mock_azure)
 
-    client = llm.build_client("k", azure_endpoint="https://example.azure.com", azure_api_version="2024-06-01")
+    client = llm.build_client(
+        "k", azure_endpoint="https://example.azure.com", azure_api_version="2024-06-01"
+    )
 
     assert client is azure_client
     mock_azure.assert_called_once_with(

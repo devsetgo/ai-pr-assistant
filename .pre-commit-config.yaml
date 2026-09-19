@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      # docs/index.md is generated from README.md (one source for both).
+      - id: sync-docs-index
+        name: sync docs/index.md from README.md
+        entry: python scripts/sync_docs_index.py
+        language: python
+        files: ^(README\.md|scripts/sync_docs_index\.py)$
+        pass_filenames: false
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

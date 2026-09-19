@@ -45,3 +45,17 @@ def test_get_encoding_falls_back_for_unknown_model():
     encoding = diff_filter.get_encoding("some-future-model-name")
     assert encoding is not None
     assert diff_filter.count_tokens("hello world", encoding) > 0
+
+
+def test_build_diff_prompt_stops_once_budget_is_exactly_spent():
+    encoding = diff_filter.get_encoding("gpt-4o-mini")
+    first_chunk = "Changes in file a.py: +first\n"
+    files = [
+        {"filename": "a.py", "patch": "+first"},
+        {"filename": "b.py", "patch": "+second"},
+    ]
+    budget = diff_filter.count_tokens(first_chunk, encoding)
+
+    prompt = diff_filter.build_diff_prompt(files, [], budget, "gpt-4o-mini")
+
+    assert prompt == first_chunk

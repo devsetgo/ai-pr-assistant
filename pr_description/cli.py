@@ -91,26 +91,38 @@ def main(argv: list[str] | None = None) -> int:
 
     allowed_users_csv = os.environ.get("INPUT_ALLOWED_USERS", "")
     allowed_users: list[str] = (
-        [user for user in allowed_users_csv.split(",") if user] if allowed_users_csv else []
+        [user for user in allowed_users_csv.split(",") if user]
+        if allowed_users_csv
+        else []
     )
 
     open_ai_model = os.environ.get("INPUT_OPENAI_MODEL", "gpt-5-mini")
     max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "2000"))
     temperature = float(os.environ.get("INPUT_TEMPERATURE", "0.6"))
     sample_prompt = os.environ.get("INPUT_MODEL_SAMPLE_PROMPT") or llm.SAMPLE_PROMPT
-    sample_response = os.environ.get("INPUT_MODEL_SAMPLE_RESPONSE") or llm.GOOD_SAMPLE_RESPONSE
-    completion_prompt_template = os.environ.get("INPUT_COMPLETION_PROMPT") or llm.COMPLETION_PROMPT
-    overwrite_description = _bool_env(os.environ.get("INPUT_OVERWRITE_DESCRIPTION", "false"))
+    sample_response = (
+        os.environ.get("INPUT_MODEL_SAMPLE_RESPONSE") or llm.GOOD_SAMPLE_RESPONSE
+    )
+    completion_prompt_template = (
+        os.environ.get("INPUT_COMPLETION_PROMPT") or llm.COMPLETION_PROMPT
+    )
+    overwrite_description = _bool_env(
+        os.environ.get("INPUT_OVERWRITE_DESCRIPTION", "false")
+    )
     azure_endpoint = os.environ.get("INPUT_AZURE_ENDPOINT", "")
     azure_api_version = os.environ.get("INPUT_AZURE_OPENAI_API_VERSION", "")
 
     generate_title = _bool_env(os.environ.get("INPUT_GENERATE_TITLE", "false"))
     overwrite_title = _bool_env(os.environ.get("INPUT_OVERWRITE_TITLE", "false"))
     enable_labels = _bool_env(os.environ.get("INPUT_ENABLE_LABELS", "false"))
-    detect_breaking_changes = _bool_env(os.environ.get("INPUT_DETECT_BREAKING_CHANGES", "false"))
+    detect_breaking_changes = _bool_env(
+        os.environ.get("INPUT_DETECT_BREAKING_CHANGES", "false")
+    )
     label_taxonomy: list[str] = [
         label.strip()
-        for label in os.environ.get("INPUT_LABEL_TAXONOMY", DEFAULT_LABEL_TAXONOMY).split(",")
+        for label in os.environ.get(
+            "INPUT_LABEL_TAXONOMY", DEFAULT_LABEL_TAXONOMY
+        ).split(",")
         if label.strip()
     ]
     exclude_patterns = diff_filter.parse_patterns(
@@ -120,7 +132,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     max_diff_tokens = int(os.environ.get("INPUT_MAX_DIFF_TOKENS", "6000"))
 
-    github = GitHubClient(args.github_api_url, args.github_repository, args.github_token)
+    github = GitHubClient(
+        args.github_api_url, args.github_repository, args.github_token
+    )
 
     try:
         pull_request_data = github.get_pull_request(args.pull_request_id)
@@ -135,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
     if allowed_users:
         pr_author = pull_request_data["user"]["login"]
         if pr_author not in allowed_users:
-            print(f"Pull request author {pr_author} is not allowed to trigger this action")
+            print(
+                f"Pull request author {pr_author} is not allowed to trigger this action"
+            )
             return 0
 
     pull_request_title: str = pull_request_data["title"]
@@ -176,7 +192,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if detect_breaking_changes and content["breaking_change"]:
-        note = content["breaking_change_notes"] or "This change may break existing consumers."
+        note = (
+            content["breaking_change_notes"]
+            or "This change may break existing consumers."
+        )
         description = f"⚠️ **Potential breaking change:** {note}\n\n{description}"
 
     print(f"Generated pull request description: '{description}'")

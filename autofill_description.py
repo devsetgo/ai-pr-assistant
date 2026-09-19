@@ -2,6 +2,7 @@
 """Entry point kept at the repo root for `entrypoint.sh` / Docker `ENTRYPOINT`
 compatibility; the actual implementation lives in the `pr_description` package.
 """
+
 import sys
 
 from pr_description.cli import main

@@ -1,9 +1,12 @@
+import re
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from pr_description import cli
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 BASE_ARGV = [
     "--github-api-url",
@@ -56,7 +59,9 @@ def generate_pr_content(monkeypatch):
     return mock
 
 
-def test_skips_when_description_exists_and_not_overwrite(github_client, generate_pr_content):
+def test_skips_when_description_exists_and_not_overwrite(
+    github_client, generate_pr_content
+):
     github_client.get_pull_request.return_value["body"] = "Already has a description"
     assert cli.main(BASE_ARGV) == 0
     generate_pr_content.assert_not_called()
@@ -67,6 +72,16 @@ def test_skips_when_author_not_allowed(monkeypatch, github_client, generate_pr_c
     monkeypatch.setenv("INPUT_ALLOWED_USERS", "bob,carol")
     assert cli.main(BASE_ARGV) == 0
     generate_pr_content.assert_not_called()
+
+
+def test_proceeds_when_author_is_allowed(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_ALLOWED_USERS", "bob,alice")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    github_client.update_description.assert_called_once_with(42, "Adds a feature")
 
 
 def test_happy_path_updates_description(github_client, generate_pr_content):
@@ -84,7 +99,9 @@ def test_empty_description_is_not_written(github_client, generate_pr_content):
     github_client.update_description.assert_not_called()
 
 
-def test_generate_title_without_overwrite_only_logs(monkeypatch, github_client, generate_pr_content):
+def test_generate_title_without_overwrite_only_logs(
+    monkeypatch, github_client, generate_pr_content
+):
     generate_pr_content.return_value["title"] = "Better title"
     monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")
 
@@ -93,7 +110,9 @@ def test_generate_title_without_overwrite_only_logs(monkeypatch, github_client, 
     github_client.update_title.assert_not_called()
 
 
-def test_generate_title_with_overwrite_updates_title(monkeypatch, github_client, generate_pr_content):
+def test_generate_title_with_overwrite_updates_title(
+    monkeypatch, github_client, generate_pr_content
+):
     generate_pr_content.return_value["title"] = "Better title"
     monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")
     monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "true")
@@ -103,7 +122,9 @@ def test_generate_title_with_overwrite_updates_title(monkeypatch, github_client,
     github_client.update_title.assert_called_once_with(42, "Better title")
 
 
-def test_breaking_change_prepends_note_and_applies_label(monkeypatch, github_client, generate_pr_content):
+def test_breaking_change_prepends_note_and_applies_label(
+    monkeypatch, github_client, generate_pr_content
+):
     generate_pr_content.return_value.update(
         {
             "labels": ["bug"],
@@ -134,7 +155,9 @@ def test_returns_error_when_get_pull_request_fails(github_client, generate_pr_co
     generate_pr_content.assert_not_called()
 
 
-def test_returns_error_when_get_pull_request_files_fails(github_client, generate_pr_content):
+def test_returns_error_when_get_pull_request_files_fails(
+    github_client, generate_pr_content
+):
     github_client.get_pull_request_files.side_effect = cli.GitHubApiError("boom")
 
     assert cli.main(BASE_ARGV) == 1
@@ -142,13 +165,17 @@ def test_returns_error_when_get_pull_request_files_fails(github_client, generate
     generate_pr_content.assert_not_called()
 
 
-def test_returns_error_when_update_description_fails(github_client, generate_pr_content):
+def test_returns_error_when_update_description_fails(
+    github_client, generate_pr_content
+):
     github_client.update_description.side_effect = cli.GitHubApiError("boom")
 
     assert cli.main(BASE_ARGV) == 1
 
 
-def test_returns_error_when_update_title_fails(monkeypatch, github_client, generate_pr_content):
+def test_returns_error_when_update_title_fails(
+    monkeypatch, github_client, generate_pr_content
+):
     generate_pr_content.return_value["title"] = "Better title"
     monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")
     monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "true")
@@ -157,9 +184,66 @@ def test_returns_error_when_update_title_fails(monkeypatch, github_client, gener
     assert cli.main(BASE_ARGV) == 1
 
 
-def test_returns_error_when_label_update_fails(monkeypatch, github_client, generate_pr_content):
+def test_returns_error_when_label_update_fails(
+    monkeypatch, github_client, generate_pr_content
+):
     generate_pr_content.return_value["labels"] = ["bug"]
     monkeypatch.setenv("INPUT_ENABLE_LABELS", "true")
     github_client.ensure_labels_exist.side_effect = cli.GitHubApiError("boom")
 
     assert cli.main(BASE_ARGV) == 1
+
+
+def test_enable_labels_without_any_labels_makes_no_label_calls(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_ENABLE_LABELS", "true")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    github_client.ensure_labels_exist.assert_not_called()
+    github_client.add_labels.assert_not_called()
+
+
+def _action_input_names() -> list[str]:
+    """Top-level input names declared in action.yml (no YAML dependency needed)."""
+    names: list[str] = []
+    in_inputs = False
+    for line in (REPO_ROOT / "action.yml").read_text().splitlines():
+        if line == "inputs:":
+            in_inputs = True
+        elif in_inputs and re.match(r"^\S", line):
+            break  # next top-level key, e.g. `runs:`
+        elif in_inputs and (match := re.match(r"^  ([a-z_]+):", line)):
+            names.append(match.group(1))
+    return names
+
+
+# Known bug (TODO_TASKS.md, "Correctness / simplification"): cli.py reads
+# INPUT_MODEL_SAMPLE_PROMPT/RESPONSE, but action.yml names the inputs
+# sample_prompt/sample_response, so they are silently ignored. strict=True makes
+# this XPASS-fail once fixed, prompting removal of the marker.
+_KNOWN_UNREAD_INPUTS = {"sample_prompt", "sample_response"}
+
+
+@pytest.mark.parametrize(
+    "input_name",
+    [
+        pytest.param(
+            name,
+            marks=pytest.mark.xfail(
+                strict=True, reason="cli.py reads INPUT_MODEL_SAMPLE_* instead"
+            ),
+        )
+        if name in _KNOWN_UNREAD_INPUTS
+        else name
+        for name in _action_input_names()
+    ],
+)
+def test_every_action_input_is_read_by_the_code(input_name):
+    """action.yml exposes each input to the container as INPUT_<NAME>; if nothing
+    reads that exact variable the input is silently dead."""
+    sources = (REPO_ROOT / "pr_description" / "cli.py").read_text() + (
+        REPO_ROOT / "entrypoint.sh"
+    ).read_text()
+    assert f"INPUT_{input_name.upper()}" in sources

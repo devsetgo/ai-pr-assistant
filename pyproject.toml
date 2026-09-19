@@ -35,7 +35,20 @@ ai_model = "gpt-4.1"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=pr_description --cov-report=term-missing --cov-report=html"
+addopts = "--cov=pr_description --cov=scripts --cov-report=term-missing --cov-report=html"
 
 [tool.coverage.run]
-source = ["pr_description"]
+source = ["pr_description", "scripts"]
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["site", "htmlcov"]
+
+[tool.ruff.lint]
+# E/F = pycodestyle/pyflakes, I = isort, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "UP", "B"]
+# Long lines are the formatter's job; the prompt strings in llm.py can't be wrapped.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pr_description"]

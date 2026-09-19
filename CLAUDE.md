@@ -11,6 +11,12 @@ has since gone in its own direction with no intent to merge back upstream — se
 for what changed and why. Full user-facing docs live under `docs/`; this file is for working on the
 implementation itself.
 
+**`docs/index.md` is generated — edit `README.md` instead.** `scripts/sync_docs_index.py` copies the README
+to the docs home page (a pre-commit hook, `make docs-index`, and the docs workflow all run it), stripping the
+`docs/` prefix from relative links. So in the README: link docs pages and images as `docs/...` (e.g.
+`docs/media/x.png`), and link anything outside `docs/` (LICENSE, action.yml) by absolute GitHub URL. Content
+that belongs only on the site goes in its own page under `docs/` and `mkdocs.yml` nav, not in the README.
+
 ## License
 
 MIT (`LICENSE`), with two copyright lines: the original `platisd/openai-pr-description` author
@@ -32,21 +38,29 @@ pip install -r requirements-dev.txt   # includes requirements.txt + pytest, pyte
 
 # Test (coverage is automatic — see pyproject.toml [tool.pytest.ini_options] addopts)
 pytest -q                              # full suite, prints coverage summary, writes htmlcov/
+make test                              # the full gate: ruff format/fix + pre-commit + mypy + pytest + genbadge
+                                       # (writes docs/badges/*.svg, coverage.xml, report.xml)
 pytest tests/test_llm.py -q            # one file
 pytest tests/test_llm.py::test_generate_pr_content_classic_path -q   # one test
 
 # Type-check
 mypy pr_description --python-version 3.12 --ignore-missing-imports
 
+# Lint + format (ruff; config in pyproject.toml [tool.ruff]) — also runs on every commit via pre-commit
+pre-commit install                     # one-time; the devcontainer does this in postCreateCommand
+pre-commit run --all-files             # or: make lint (check only) / make format (apply fixes)
+
 # Build the actual Action image
 docker build -t ai-pr-assistant .
 
-# Version bump (CalVer via BumpCalver) — normally run through the manual
-# "Version Bump" GitHub Actions workflow (workflow_dispatch: build/beta/rc), not locally
-bumpcalver --build --update-changelog --dry-run --json  # preview the version bump + changelog entry
+# Version bump (CalVer via BumpCalver) — run locally, never from CI
+make bump-preview                      # dry run: shows the next version + changelog entry
+make bump                              # commit + tag locally (BUMP=beta / BUMP=rc for pre-releases); needs a clean
+                                       # tree, loads OPENAI_API_KEY from .env for the changelog; pushes nothing
 ```
 
-No lint/format tool is configured yet — don't assume `ruff`/`black`/`flake8` exist here.
+Ruff is the only lint/format tool (`.pre-commit-config.yaml` pins its version; keep it in sync with
+`requirements-dev.txt`) — don't assume `black`/`flake8` exist here. CI doesn't run it yet.
 
 ## Architecture
 
@@ -95,11 +109,11 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
   `<sources>` block so Sonar resolves both `pr_description/foo.py`-style and bare `__init__.py`-style
   paths. Skipped for Dependabot PRs (no secret access).
 - `.github/workflows/release-drafter.yml` + `.github/release-drafter.yml` — drafts release notes on
-  push to `master`; autolabeler matches on **branch name**, and categories are aligned with the
+  push to `main`; autolabeler matches on **branch name**, and categories are aligned with the
   labels this Action's own `enable_labels`/`label_taxonomy` and `breaking-change` label actually
   produce.
-- `.github/workflows/version-bump.yml` — manual-only (`workflow_dispatch`). Runs `bumpcalver`, then
-  pushes the resulting commit + tag itself (`bumpcalver` does not push).
+- There is deliberately no version-bump workflow: `make bump` runs `bumpcalver` locally, creating the commit and
+  tag; pushing them (`git push origin HEAD <tag>`) is a separate, manual step (`bumpcalver` does not push).
 - `.github/workflows/pr-description.yml` — dogfoods the Action on this repo's own PRs.
 - `.github/dependabot.yaml` — pip + github-actions, monthly.
 

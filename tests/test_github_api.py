@@ -18,7 +18,9 @@ def _response(status_code=200, json_data=None, text="", links=None):
 @pytest.fixture
 def client():
     session = MagicMock()
-    return GitHubClient("https://api.github.com", "acme/widgets", "token123", session=session)
+    return GitHubClient(
+        "https://api.github.com", "acme/widgets", "token123", session=session
+    )
 
 
 def test_get_pull_request_returns_json(client):

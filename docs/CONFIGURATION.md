@@ -1,7 +1,60 @@
 # Configuration reference
 
 All inputs the Action accepts, in the order you'd typically reach for them.
-For a minimal starter workflow, see the [README](../README.md#quickstart).
+For a minimal starter workflow, see the [project README](https://github.com/devsetgo/ai-pr-assistant#quickstart).
+
+## Example: full-capability setup
+
+The workflow below enables the action's optional title generation, label application, and breaking-change detection.
+
+```yaml
+name: AI PR Assistant
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  ai-pr-assistant:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Generate PR description and metadata
+        uses: devsetgo/ai-pr-assistant@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          openai_model: gpt-5-mini
+          allowed_users: "your-github-username,maintainer-2"
+          overwrite_description: true
+          generate_title: true
+          overwrite_title: true
+          enable_labels: true
+          label_taxonomy: "bug,feature,enhancement,documentation,dependencies,refactor,test,chore,breaking-change"
+          detect_breaking_changes: true
+          max_diff_tokens: "8000"
+          max_tokens: "2000"
+```
+
+## Setup walkthrough
+
+1. Add the OpenAI key to GitHub as a secret. For public OpenAI, use `OPENAI_API_KEY`.
+2. Create a workflow under `.github/workflows/` using the example above.
+3. Add the minimum GitHub permissions needed for the feature set you want:
+   - `pull-requests: write` for descriptions and titles
+   - `issues: write` when `enable_labels` is `true`
+4. Turn on optional features one at a time if you want to start simple:
+   - `generate_title` for title suggestions
+   - `overwrite_title` to apply the suggested title
+   - `enable_labels` for label generation and label creation
+   - `detect_breaking_changes` to warn on likely breaking changes
+   - `overwrite_description` to refresh the description on PR updates
+5. Adjust `openai_model`, `max_tokens`, and `max_diff_tokens` if your repo has large diffs or you want more concise output.
+6. For Azure OpenAI, set `azure_endpoint` and `azure_openai_api_version` instead of using the public OpenAI key flow.
 
 ## Required
 

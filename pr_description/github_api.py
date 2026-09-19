@@ -161,7 +161,9 @@ class GitHubClient:
         while url:
             response = self.session.get(url)
             if not response.ok:
-                raise GitHubApiError(f"Request to list labels failed: {response.status_code}")
+                raise GitHubApiError(
+                    f"Request to list labels failed: {response.status_code}"
+                )
             names.update(label["name"] for label in response.json())
             url = response.links.get("next", {}).get("url")
         return names
@@ -212,4 +214,6 @@ class GitHubClient:
             json={"labels": labels},
         )
         if not response.ok:
-            raise GitHubApiError(f"Request to add labels failed: {response.status_code}")
+            raise GitHubApiError(
+                f"Request to add labels failed: {response.status_code}"
+            )

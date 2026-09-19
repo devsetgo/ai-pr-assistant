@@ -10,12 +10,13 @@
     // For release/PR work against this repo (gh pr view, gh repo rename, etc.)
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-  "postCreateCommand": "pip install -r requirements-dev.txt",
+  "postCreateCommand": "pip install -r requirements-dev.txt && pre-commit install",
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
         "redhat.vscode-yaml",
         "github.vscode-github-actions",
         "sonarsource.sonarlint-vscode",

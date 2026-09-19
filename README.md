@@ -1,5 +1,7 @@
 # `devsetgo/ai-pr-assistant` GitHub Action
 
+[![Tests](docs/badges/tests-badge.svg)](https://github.com/devsetgo/ai-pr-assistant/actions/workflows/test.yml)
+[![Test coverage](docs/badges/coverage-badge.svg)](https://github.com/devsetgo/ai-pr-assistant/actions/workflows/test.yml)
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=coverage)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
@@ -13,10 +15,10 @@ Inspired by the excellent work of [`platisd/openai-pr-description`](https://gith
 by Dimitris Platis, this project has since gone in its own direction —
 substantially updated for current OpenAI models (including the `gpt-5`
 family) and extended with optional title generation, auto-labeling and
-breaking-change detection. See [docs/MIGRATING.md](docs/MIGRATING.md) for
+breaking-change detection. See the [migration guide](docs/MIGRATING.md) for
 its history and how it differs from upstream.
 
-![openai-pr-description-screenshot](media/openai-pr-description-screenshot.png)
+![openai-pr-description-screenshot](docs/media/repo-1.png)
 
 ## What does it do?
 
@@ -38,7 +40,7 @@ Optionally, it can also:
 
 All of these are opt-in and default to off, so a minimal workflow keeps the
 exact plain-description behavior described above. See
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md) for every input and how these
+the [configuration reference](docs/CONFIGURATION.md) for every input and how these
 features interact.
 
 Keep in mind the OpenAI API is not free to use. That being said, so far it's been rather cheap,
@@ -60,10 +62,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: devsetgo/ai-pr-assistant@master
+      - uses: devsetgo/ai-pr-assistant@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          openai_model: gpt-5-mini
+          max_tokens: '2000'
+          max_diff_tokens: '6000'
 ```
 
 That's it — every new pull request without a description will get one.
@@ -71,36 +76,25 @@ That's it — every new pull request without a description will get one.
 ## Documentation
 
 - [**GitHub Pages site**](https://devsetgo.github.io/ai-pr-assistant/) — published docs built with Zensical
+- [**Setup guide**](docs/SETUP.md) — a full-capability example workflow and a step-by-step walkthrough
 - [**Configuration reference**](docs/CONFIGURATION.md) — every input, defaults,
   classic vs. structured mode, and required permissions
+- [**Changelog**](docs/CHANGELOG.md)
 - [**Troubleshooting**](docs/TROUBLESHOOTING.md) — the `403` error, missing
   labels, and other common issues
 - [**History & migrating from `platisd/openai-pr-description`**](docs/MIGRATING.md)
+- [**Action metadata (`action.yml`)**](https://github.com/devsetgo/ai-pr-assistant/blob/main/action.yml)
 
 ## Demo
 
 The examples below are from the upstream project this was inspired by, prior
 to the rename and the features described above:
 
-* [platisd/smartcar_shield/pull/70](https://github.com/platisd/smartcar_shield/pull/70)
-  * The GitHub Action explained why it is useful to add itself to a repository. 🤯
-
-![openai-pr-description-screenshot](media/openai-pr-description-screenshot.png)
-
-* [platisd/cpp-command-parser/pull/16](https://github.com/platisd/cpp-command-parser/pull/16)
-  * A decent explanation on why fetching `GoogleTest` during the `cmake` build instead of
-  version controlling it, is a good idea. 🎯
-
-![cpp-command-parser-screenshot](media/cpp-command-parser-screenshot.png)
-
-* [platisd/clang-tidy-pr-comments/pull/43](https://github.com/platisd/clang-tidy-pr-comments/pull/43)
-  * A decent explanation, with small modifications it'd be even better. 😅
-
-![clang-tidy-pr-comments-screenshot](media/clang-tidy-pr-comments-screenshot.png)
+coming soon
 
 ## License
 
-MIT — see [LICENSE](LICENSE). This project retains the original upstream
+MIT — see [LICENSE](https://github.com/devsetgo/ai-pr-assistant/blob/main/LICENSE). This project retains the original upstream
 copyright notice as required by the license, alongside a copyright line for
 its own modifications.
 

@@ -363,16 +363,25 @@ def generate_pr_content(
             # passed; the arguments themselves are valid at runtime.
             response = client.chat.completions.create(  # type: ignore[call-overload]
                 model=model,
-                messages=_structured_messages(pull_request_title, completion_prompt, label_taxonomy),
-                response_format={"type": "json_schema", "json_schema": PR_CONTENT_SCHEMA},
+                messages=_structured_messages(
+                    pull_request_title, completion_prompt, label_taxonomy
+                ),
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": PR_CONTENT_SCHEMA,
+                },
                 **kwargs,
             )
-            payload: dict[str, Any] = json.loads(_require_content(response.choices[0].message.content))
+            payload: dict[str, Any] = json.loads(
+                _require_content(response.choices[0].message.content)
+            )
             return {
                 "description": strip_redundant_prefix(payload.get("description", "")),
                 "title": payload.get("title") or None,
                 "labels": [
-                    label for label in (payload.get("labels") or []) if label in label_taxonomy
+                    label
+                    for label in (payload.get("labels") or [])
+                    if label in label_taxonomy
                 ],
                 "breaking_change": bool(payload.get("breaking_change")),
                 "breaking_change_notes": payload.get("breaking_change_notes") or None,
@@ -385,7 +394,9 @@ def generate_pr_content(
 
     response = client.chat.completions.create(
         model=model,
-        messages=_classic_messages(pull_request_title, completion_prompt, sample_prompt, sample_response),
+        messages=_classic_messages(
+            pull_request_title, completion_prompt, sample_prompt, sample_response
+        ),
         **kwargs,
     )
     return _plain_result(_require_content(response.choices[0].message.content))
