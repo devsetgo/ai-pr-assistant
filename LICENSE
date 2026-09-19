@@ -3,11 +3,12 @@ MIT License
 Copyright (c) 2023 Dimitris Platis
 Copyright (c) 2026 DevSetGo
 
-This is a hard fork of https://github.com/platisd/openai-pr-description by
-Dimitris Platis, substantially modified and maintained independently as
-ai-pr-assistant. The original MIT copyright and permission notice below is
-retained as required by the license; the second copyright line above covers
-modifications and additions made in this fork.
+This project is inspired by https://github.com/platisd/openai-pr-description
+by Dimitris Platis, started from it, and has since been substantially
+rewritten and extended in its own direction as ai-pr-assistant. The original
+MIT copyright and permission notice below is retained as required by the
+license; the second copyright line above covers this project's own
+modifications and additions.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

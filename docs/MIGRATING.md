@@ -1,13 +1,13 @@
-# Fork history & migrating from `platisd/openai-pr-description`
+# History & migrating from `platisd/openai-pr-description`
 
-`ai-pr-assistant` is a **hard fork** of
+`ai-pr-assistant` is inspired by the excellent work of
 [`platisd/openai-pr-description`](https://github.com/platisd/openai-pr-description)
-by Dimitris Platis. It was forked because the upstream project appeared
-abandoned (its last commit predates this fork by over a year), and this fork
-has since diverged enough — new features, an internal restructure, updated
-dependencies — that there is no intent to merge back upstream. It remains
-under the MIT license; see [LICENSE](../LICENSE) for the original and
-fork copyright notices.
+by Dimitris Platis, and started as a fork of it — the upstream project
+appeared abandoned (its last commit predates this one by over a year). It has
+since gone in its own direction — new features, an internal restructure,
+updated dependencies — with no intent to merge back upstream. It remains
+under the MIT license; see [LICENSE](../LICENSE) for the original and this
+project's own copyright notices.
 
 ## If you're currently using `platisd/openai-pr-description` or an earlier
 ## `devsetgo/openai-pr-description`
@@ -32,7 +32,7 @@ plan to touch your workflow file.
 - **The default model now actually works.** The upstream project's last
   commit intended to default to `gpt-5-mini`, but `action.yml` still listed
   `gpt-4o-mini` as the default, so `INPUT_OPENAI_MODEL` was always
-  `gpt-4o-mini` in practice regardless of that commit. This fork's
+  `gpt-4o-mini` in practice regardless of that commit. This project's
   `action.yml` genuinely defaults to `gpt-5-mini`. Separately, requests to
   GPT-5/o-series ("reasoning") models now correctly omit `temperature` and
   use `max_completion_tokens` instead of `max_tokens` — sending the old
@@ -54,7 +54,7 @@ plan to touch your workflow file.
 
 ### New, opt-in only
 
-Everything else added in this fork — `generate_title`, `enable_labels`,
+Everything else added here — `generate_title`, `enable_labels`,
 `detect_breaking_changes`, `exclude_patterns` — defaults to off/unchanged.
 A workflow that doesn't set any of these keeps the exact plain-description
 behavior it had before. See [CONFIGURATION.md](CONFIGURATION.md) for what

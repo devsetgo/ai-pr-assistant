@@ -2,12 +2,12 @@
 
 Autofill the description (and optionally the title and labels) of your pull requests with the power of OpenAI!
 
-This is a hard fork of [`platisd/openai-pr-description`](https://github.com/platisd/openai-pr-description)
-by Dimitris Platis — substantially updated for current OpenAI models
-(including the `gpt-5` family) and extended with optional title generation,
-auto-labeling and breaking-change detection. See
-[docs/MIGRATING.md](docs/MIGRATING.md) for the fork's history and how it
-differs from upstream.
+Inspired by the excellent work of [`platisd/openai-pr-description`](https://github.com/platisd/openai-pr-description)
+by Dimitris Platis, this project has since gone in its own direction —
+substantially updated for current OpenAI models (including the `gpt-5`
+family) and extended with optional title generation, auto-labeling and
+breaking-change detection. See [docs/MIGRATING.md](docs/MIGRATING.md) for
+its history and how it differs from upstream.
 
 ![openai-pr-description-screenshot](media/openai-pr-description-screenshot.png)
 
@@ -67,11 +67,11 @@ That's it — every new pull request without a description will get one.
   classic vs. structured mode, and required permissions
 - [**Troubleshooting**](docs/TROUBLESHOOTING.md) — the `403` error, missing
   labels, and other common issues
-- [**Fork history & migrating from `platisd/openai-pr-description`**](docs/MIGRATING.md)
+- [**History & migrating from `platisd/openai-pr-description`**](docs/MIGRATING.md)
 
 ## Demo
 
-The examples below are from the upstream project this was forked from, prior
+The examples below are from the upstream project this was inspired by, prior
 to the rename and the features described above:
 
 * [platisd/smartcar_shield/pull/70](https://github.com/platisd/smartcar_shield/pull/70)
@@ -92,9 +92,9 @@ to the rename and the features described above:
 
 ## License
 
-MIT — see [LICENSE](LICENSE). This fork retains the original upstream
+MIT — see [LICENSE](LICENSE). This project retains the original upstream
 copyright notice as required by the license, alongside a copyright line for
-this fork's own modifications.
+its own modifications.
 
 [OpenAI API key]: https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key
 [secret]: https://docs.github.com/en/actions/security-guides/encrypted-secrets

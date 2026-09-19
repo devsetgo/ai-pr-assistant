@@ -6,14 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Docker-based GitHub Action (`devsetgo/ai-pr-assistant`) that reads a pull request's title and file
 diffs and asks OpenAI to write its description, and optionally its title, labels, and a
-breaking-change note. It is a **hard fork** of `platisd/openai-pr-description` with no intent to
-merge back upstream — see `docs/MIGRATING.md` for what changed and why. Full user-facing docs live
-under `docs/`; this file is for working on the implementation itself.
+breaking-change note. It's inspired by `platisd/openai-pr-description`, started as a fork of it, and
+has since gone in its own direction with no intent to merge back upstream — see `docs/MIGRATING.md`
+for what changed and why. Full user-facing docs live under `docs/`; this file is for working on the
+implementation itself.
 
 ## License
 
 MIT (`LICENSE`), with two copyright lines: the original `platisd/openai-pr-description` author
-(Dimitris Platis) and DevSetGo for this fork's modifications. MIT requires the original copyright
+(Dimitris Platis) and DevSetGo for this project's own modifications. MIT requires the original copyright
 and permission notice be kept in all copies/substantial portions of the software, so:
 - Never remove, replace, or backdate the Dimitris Platis copyright line in `LICENSE` — only add to
   it, the way the DevSetGo line already does.
