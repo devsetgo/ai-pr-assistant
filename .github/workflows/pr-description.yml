@@ -4,7 +4,8 @@ on: pull_request
 
 permissions:
   contents: read
-  issues: write   # description/title updates go through the issues endpoint, per GitHub's REST reference
+  issues: write         # description/title updates go through the issues endpoint
+  pull-requests: write  # granted alongside issues:write since the 403 persisted with issues:write alone
 
 jobs:
   ai-pr-assistant:
