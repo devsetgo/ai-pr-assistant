@@ -19,7 +19,7 @@ For a minimal starter workflow, see the [README](../README.md#quickstart).
 | `overwrite_description` | Overwrite the PR description if it already exists (also means the Action runs on every PR update, not just when the description is empty) | `false` |
 | `openai_model`          | The [OpenAI model] to use, any model compatible with the chat completions endpoint | `gpt-5-mini` |
 | `temperature`           | Higher values make the model more creative (0-2). **Ignored for reasoning models** (`gpt-5*`, `o1*`, `o3*`, `o4*`), which only support the default temperature | `0.6` |
-| `max_tokens`            | Maximum number of **output/completion tokens** the model may generate | `1000` |
+| `max_tokens`            | Maximum number of **output/completion tokens** the model may generate. Reasoning models spend part of this on hidden reasoning tokens before any visible output, so a large diff can need more headroom. | `2000` |
 
 ## Diff handling
 

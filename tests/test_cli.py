@@ -76,6 +76,14 @@ def test_happy_path_updates_description(github_client, generate_pr_content):
     github_client.add_labels.assert_not_called()
 
 
+def test_empty_description_is_not_written(github_client, generate_pr_content):
+    generate_pr_content.return_value["description"] = "   "
+
+    assert cli.main(BASE_ARGV) == 1
+
+    github_client.update_description.assert_not_called()
+
+
 def test_generate_title_without_overwrite_only_logs(monkeypatch, github_client, generate_pr_content):
     generate_pr_content.return_value["title"] = "Better title"
     monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")

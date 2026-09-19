@@ -20,9 +20,9 @@ inputs:
     required: false
     default: 'gpt-5-mini'
   max_tokens:
-    description: 'Maximum number of output/completion tokens the model may generate'
+    description: 'Maximum number of output/completion tokens the model may generate. Reasoning models (gpt-5*, o1*, o3*, o4*) spend part of this budget on hidden reasoning tokens before any visible output, so a large diff can need more headroom than a classic model would.'
     required: false
-    default: '1000'
+    default: '2000'
   max_diff_tokens:
     description: 'Maximum number of tokens worth of PR diff to send to the model, counted with the real tokenizer for the selected model'
     required: false

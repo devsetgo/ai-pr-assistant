@@ -95,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     open_ai_model = os.environ.get("INPUT_OPENAI_MODEL", "gpt-5-mini")
-    max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "1000"))
+    max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "2000"))
     temperature = float(os.environ.get("INPUT_TEMPERATURE", "0.6"))
     sample_prompt = os.environ.get("INPUT_MODEL_SAMPLE_PROMPT") or llm.SAMPLE_PROMPT
     sample_response = os.environ.get("INPUT_MODEL_SAMPLE_RESPONSE") or llm.GOOD_SAMPLE_RESPONSE
@@ -167,6 +167,14 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     description = content["description"]
+    if not description.strip():
+        print(
+            "Model returned an empty description (this can happen with reasoning "
+            f"models when max_tokens={max_tokens} is spent on hidden reasoning "
+            "tokens before any visible output) - not overwriting the pull request."
+        )
+        return 1
+
     if detect_breaking_changes and content["breaking_change"]:
         note = content["breaking_change_notes"] or "This change may break existing consumers."
         description = f"⚠️ **Potential breaking change:** {note}\n\n{description}"
