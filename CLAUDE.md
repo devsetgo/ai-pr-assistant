@@ -117,8 +117,9 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
 - There is deliberately no version-bump workflow: `make bump` runs `bumpcalver` locally, creating the commit and
   tag; pushing them (`git push origin HEAD <tag>`) is a separate, manual step (`bumpcalver` does not push).
 - `.github/workflows/ai_pr_assistant.yml` — dogfoods the Action on this repo's own PRs (every input listed).
-- `.github/workflows/docs.yml` — regenerates `docs/index.md` from the README, builds the Zensical site
-  (`zensical build --clean --strict`) and deploys it to GitHub Pages.
+- `.github/workflows/docs.yml` — regenerates `docs/index.md` from the README and builds the Zensical site
+  (`zensical build --clean --strict`) on docs-related PRs/pushes to `main`; deploys to GitHub Pages only on a
+  release or manual dispatch (the build job uploads the artifact, deploy reuses it).
 - `.github/dependabot.yaml` — pip + github-actions, monthly.
 
 `docs/CHANGELOG.md` is a symlink to the root `CHANGELOG.md` (bumpcalver writes the root file), so the docs

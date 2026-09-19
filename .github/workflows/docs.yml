@@ -1,6 +1,30 @@
 name: Documentation
 
+# The strict build runs on every PR/push that could change the site, so a broken
+# link or nav entry is caught before release. Deploying is release/manual only.
 "on":
+  pull_request:
+    paths:
+      - docs/**
+      - overrides/**
+      - mkdocs.yml
+      - README.md            # docs/index.md is generated from it
+      - CHANGELOG.md         # docs/CHANGELOG.md is a symlink to it
+      - scripts/sync_docs_index.py
+      - requirements-dev.txt # pins the site generator
+      - .github/workflows/docs.yml
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+      - overrides/**
+      - mkdocs.yml
+      - README.md            # docs/index.md is generated from it
+      - CHANGELOG.md         # docs/CHANGELOG.md is a symlink to it
+      - scripts/sync_docs_index.py
+      - requirements-dev.txt # pins the site generator
+      - .github/workflows/docs.yml
   release:
     types:
       - published
@@ -8,12 +32,12 @@ name: Documentation
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# PR builds supersede each other per ref. Everything else shares one group that
+# queues instead of cancelling, so a PR push can never abort a deploy in flight.
 concurrency:
-  group: docs-pages
-  cancel-in-progress: true
+  group: docs-${{ github.event_name == 'pull_request' && github.ref || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -26,25 +50,22 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python scripts/sync_docs_index.py
       - run: zensical build --clean --strict
+      - uses: actions/upload-pages-artifact@v5
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        with:
+          path: site
 
   deploy:
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/configure-pages@v6
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - run: pip install -r requirements-dev.txt
-      - run: python scripts/sync_docs_index.py
-      - run: zensical build --clean --strict
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
       - id: deployment
         uses: actions/deploy-pages@v5
