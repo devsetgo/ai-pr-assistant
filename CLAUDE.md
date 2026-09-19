@@ -10,6 +10,19 @@ breaking-change note. It is a **hard fork** of `platisd/openai-pr-description` w
 merge back upstream — see `docs/MIGRATING.md` for what changed and why. Full user-facing docs live
 under `docs/`; this file is for working on the implementation itself.
 
+## License
+
+MIT (`LICENSE`), with two copyright lines: the original `platisd/openai-pr-description` author
+(Dimitris Platis) and DevSetGo for this fork's modifications. MIT requires the original copyright
+and permission notice be kept in all copies/substantial portions of the software, so:
+- Never remove, replace, or backdate the Dimitris Platis copyright line in `LICENSE` — only add to
+  it, the way the DevSetGo line already does.
+- Any new file added to this repo (source or vendored) must stay MIT-compatible; don't add a
+  conflicting license header to an individual file.
+- If code is ever copied in from another project, its license must be checked for MIT-compatibility
+  first, and its own attribution preserved per that license's terms — same obligation this repo
+  places on anyone who copies from it.
+
 ## Commands
 
 ```bash
