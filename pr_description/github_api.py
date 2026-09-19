@@ -39,8 +39,9 @@ def _build_session() -> requests.Session:
         allowed_methods=("GET", "POST", "PATCH"),
     )
     adapter = HTTPAdapter(max_retries=retry)
+    # Only HTTPS is ever legitimate here (GitHub's API, and GITHUB_API_URL,
+    # are always https://) - deliberately not mounting http:// too.
     session.mount("https://", adapter)
-    session.mount("http://", adapter)
     return session
 
 
