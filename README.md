@@ -1,31 +1,47 @@
-# `platisd/openai-pr-description` GitHub Action
+# `devsetgo/ai-pr-assistant` GitHub Action
 
-Autofill the description of your pull requests with the power of OpenAI!
+Autofill the description (and optionally the title and labels) of your pull requests with the power of OpenAI!
+
+This is a hard fork of [`platisd/openai-pr-description`](https://github.com/platisd/openai-pr-description)
+by Dimitris Platis — substantially updated for current OpenAI models
+(including the `gpt-5` family) and extended with optional title generation,
+auto-labeling and breaking-change detection. See
+[docs/MIGRATING.md](docs/MIGRATING.md) for the fork's history and how it
+differs from upstream.
 
 ![openai-pr-description-screenshot](media/openai-pr-description-screenshot.png)
 
 ## What does it do?
 
-`platisd/openai-pr-description` is a GitHub Action that looks at the title as well as the contents
+`ai-pr-assistant` is a GitHub Action that looks at the title as well as the contents
 of your pull request and uses the [OpenAI API](https://openai.com/blog/openai-api) to automatically
 fill up the description of your pull request. Just like ChatGPT would! 🎉<br>
 The Action tries to focus on **why** the changes are needed rather on **what** they are,
 like any proper pull request description should.
 
-The GitHub Action will (by default) only run when a PR description is not already provided.
-In other words it will not accidentally overwrite your existing description,
-unless you opt-in to do so by setting the `overwrite_description` input to `true`.
-The idea is this Action will save you the time and trouble of writing **meaningful** pull request descriptions.<br>
-You can customize it in different ways. One of them allows the Action to only run on pull requests started
-by specific users, e.g. the main maintainers of the repository.
-Keep in mind the OpenAI API is not free to use. That being said, so far it's been rather cheap,
-i.e. around ~$0.10 for 15-20 pull requests so far.
+By default it only runs when a PR description is not already provided, so it
+will never accidentally overwrite an existing one unless you opt in via
+`overwrite_description`. You can also restrict it to only run for specific
+PR authors, e.g. the repository's maintainers.
 
-## How can you use it?
+Optionally, it can also:
+- propose (or apply) an improved **pull request title**
+- **auto-label** the pull request from a configurable taxonomy
+- flag likely **breaking changes** with a note in the description and a `breaking-change` label
+
+All of these are opt-in and default to off, so a minimal workflow keeps the
+exact plain-description behavior described above. See
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md) for every input and how these
+features interact.
+
+Keep in mind the OpenAI API is not free to use. That being said, so far it's been rather cheap,
+i.e. around ~$0.10 for 15-20 pull requests.
+
+## Quickstart
 
 1. Create an account on OpenAI, set up a payment method and get your [OpenAI API key].
 2. Add the OpenAI API key as a [secret] in your repository's settings.
-3. Create a workflow YAML file, e.g. `.github/workflows/openai-pr-description.yml` with the following contents:
+3. Create a workflow YAML file, e.g. `.github/workflows/ai-pr-assistant.yml`:
 
 ```yaml
 name: Autofill PR description
@@ -33,37 +49,30 @@ name: Autofill PR description
 on: pull_request
 
 jobs:
-  openai-pr-description:
-    runs-on: ubuntu-22.04
+  ai-pr-assistant:
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: platisd/openai-pr-description@master
+      - uses: devsetgo/ai-pr-assistant@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
 ```
 
-| Input                      | Description                                                    | Required | Default                    |
-| -------------------------- | -------------------------------------------------------------- | -------- | -------------------------- |
-| `github_token`             | The GitHub token to use for the Action                         | Yes      |                            |
-| `openai_api_key`           | The [OpenAI API key] to use, keep it hidden                    | Yes      |                            |
-| `pull_request_id`          | The ID of the pull request to use                              | No       | Extracted from metadata    |
-| `openai_model`             | The [OpenAI model] to use                                      | No       | `gpt-4o-mini`              |
-| `max_tokens`               | The maximum number of **prompt tokens** to use                 | No       | `1000`                     |
-| `temperature`              | Higher values will make the model more creative (0-2)          | No       | `0.6`                      |
-| `sample_prompt`            | The prompt to use for giving context to the model              | No       | See `SAMPLE_PROMPT`        |
-| `sample_response`          | A sample response for giving context to the model              | No       | See `GOOD_SAMPLE_RESPONSE` |
-| `completion_prompt`        | The prompt to use for the model to generate the PR description | No       | See `COMPLETION_PROMPT`    |
-| `overwrite_description`    | Whether to overwrite the PR description if it already exists   | No       | `false`                    |
-| `azure_endpoint`           | The OpenAI API Azure endpoint if you use one                   | No       |                            |
-| `azure_openai_api_version` | The OpenAI API version to use if you use Azure                 | No       |                            |
+That's it — every new pull request without a description will get one.
 
-[OpenAI API key]: https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key
-[OpenAI model]: https://platform.openai.com/docs/models
-[secret]: https://docs.github.com/en/actions/security-guides/encrypted-secrets
+## Documentation
 
+- [**Configuration reference**](docs/CONFIGURATION.md) — every input, defaults,
+  classic vs. structured mode, and required permissions
+- [**Troubleshooting**](docs/TROUBLESHOOTING.md) — the `403` error, missing
+  labels, and other common issues
+- [**Fork history & migrating from `platisd/openai-pr-description`**](docs/MIGRATING.md)
 
 ## Demo
+
+The examples below are from the upstream project this was forked from, prior
+to the rename and the features described above:
 
 * [platisd/smartcar_shield/pull/70](https://github.com/platisd/smartcar_shield/pull/70)
   * The GitHub Action explained why it is useful to add itself to a repository. 🤯
@@ -77,14 +86,15 @@ jobs:
 ![cpp-command-parser-screenshot](media/cpp-command-parser-screenshot.png)
 
 * [platisd/clang-tidy-pr-comments/pull/43](https://github.com/platisd/clang-tidy-pr-comments/pull/43)
-  * I would improve it a bit, some parts are a bit off, but with small modifications it'd better
-  than the PR description I originally had. 😅
+  * A decent explanation, with small modifications it'd be even better. 😅
 
 ![clang-tidy-pr-comments-screenshot](media/clang-tidy-pr-comments-screenshot.png)
 
-### `403` error when updating the PR description
+## License
 
-If you get a `403` error when trying to update the PR description, it's most likely because
-the GitHub Action is not allowed to do so.
-The easiest way forward is to grant the necessary permissions to the `GITHUB_TOKEN` secret
-at `<your_repo_url>/settings/actions` under `Workflow permissions`.
+MIT — see [LICENSE](LICENSE). This fork retains the original upstream
+copyright notice as required by the license, alongside a copyright line for
+this fork's own modifications.
+
+[OpenAI API key]: https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key
+[secret]: https://docs.github.com/en/actions/security-guides/encrypted-secrets
