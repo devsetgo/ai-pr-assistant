@@ -34,7 +34,8 @@ and permission notice be kept in all copies/substantial portions of the software
 
 ```bash
 # Install
-pip install -r requirements-dev.txt   # includes requirements.txt + pytest, pytest-cov, mypy-relevant deps
+pip install -r requirements-dev.txt   # requirements.txt + the whole dev toolchain: pytest(+cov), ruff, pre-commit,
+                                       # mypy, genbadge, zensical, bumpcalver (ruff must match .pre-commit-config.yaml's rev)
 
 # Test (coverage is automatic — see pyproject.toml [tool.pytest.ini_options] addopts)
 pytest -q                              # full suite, prints coverage summary, writes htmlcov/
@@ -110,16 +111,21 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
   `coverage.xml` independently of test.yml (not shared via artifact) and normalizes the Cobertura
   `<sources>` block so Sonar resolves both `pr_description/foo.py`-style and bare `__init__.py`-style
   paths. Skipped for Dependabot PRs (no secret access).
-- `.github/workflows/release-drafter.yml` + `.github/release-drafter.yml` — drafts release notes on
-  push to `main`; autolabeler matches on **branch name**, and categories are aligned with the
-  labels this Action's own `enable_labels`/`label_taxonomy` and `breaking-change` label actually
-  produce.
+- `.github/workflows/release-drafter.yml` + `.github/release-drafter.yml` — Release Drafter v7 runs as two
+  jobs: the drafter drafts release notes on push to `main`, and the separate autolabeler action labels
+  PRs (`pull_request`, not `pull_request_target`, so fork PRs go unlabeled; Dependabot PRs are skipped
+  since Dependabot labels its own). The autolabeler matches on **branch name**, and categories (v7
+  `when: labels:` form) are aligned with the labels this Action's own `enable_labels`/`label_taxonomy`
+  and `breaking-change` label actually produce.
 - There is deliberately no version-bump workflow: `make bump` runs `bumpcalver` locally, creating the commit and
   tag; pushing them (`git push origin HEAD <tag>`) is a separate, manual step (`bumpcalver` does not push).
 - `.github/workflows/ai_pr_assistant.yml` — dogfoods the Action on this repo's own PRs (every input listed).
 - `.github/workflows/docs.yml` — regenerates `docs/index.md` from the README and builds the Zensical site
   (`zensical build --clean --strict`) on docs-related PRs/pushes to `main`; deploys to GitHub Pages only on a
   release or manual dispatch (the build job uploads the artifact, deploy reuses it).
+  One-time repo setting: Settings -> Pages -> Build and deployment -> Source must be **GitHub Actions**
+  (this workflow publishes an artifact; it never creates a `gh-pages` branch). Without it the deploy job
+  fails at `configure-pages` with "Get Pages site failed ... Not Found".
 - `.github/dependabot.yaml` — pip + github-actions, monthly.
 
 `docs/CHANGELOG.md` is a symlink to the root `CHANGELOG.md` (bumpcalver writes the root file), so the docs

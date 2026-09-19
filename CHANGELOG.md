@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 
 ## Latest Changes
+### 26.09.19-002
+
+_Changes since 26.09.19-001._
+
+#### What's Changed
+* ci: migrate Release Drafter to the v7 layout (separate autolabeler, `when` categories)
+* ci: run the docs build on PRs and pushes again, and deploy from its artifact
+* docs: state that the max_tokens default rose from 1000 to 2000
+* fix: honor sample_prompt/sample_response and make error handling clearer
+* chore: tidy docs and repo hygiene (.dockerignore, changelog symlink, footer license)
+* chore: gitignore bumpcalver's local backups and history
+
+Generated Date: 2026 September 19, 19:17
+
 ### 26.09.19-001
 
 #### What's Changed
