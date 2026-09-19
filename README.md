@@ -1,5 +1,12 @@
 # `devsetgo/ai-pr-assistant` GitHub Action
 
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=coverage)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
+
 Autofill the description (and optionally the title and labels) of your pull requests with the power of OpenAI!
 
 Inspired by the excellent work of [`platisd/openai-pr-description`](https://github.com/platisd/openai-pr-description)
