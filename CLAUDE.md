@@ -34,7 +34,8 @@ and permission notice be kept in all copies/substantial portions of the software
 
 ```bash
 # Install
-pip install -r requirements-dev.txt   # includes requirements.txt + pytest, pytest-cov, mypy-relevant deps
+pip install -r requirements-dev.txt   # requirements.txt + the whole dev toolchain: pytest(+cov), ruff, pre-commit,
+                                       # mypy, genbadge, zensical, bumpcalver (ruff must match .pre-commit-config.yaml's rev)
 
 # Test (coverage is automatic — see pyproject.toml [tool.pytest.ini_options] addopts)
 pytest -q                              # full suite, prints coverage summary, writes htmlcov/
@@ -122,6 +123,9 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
 - `.github/workflows/docs.yml` — regenerates `docs/index.md` from the README and builds the Zensical site
   (`zensical build --clean --strict`) on docs-related PRs/pushes to `main`; deploys to GitHub Pages only on a
   release or manual dispatch (the build job uploads the artifact, deploy reuses it).
+  One-time repo setting: Settings -> Pages -> Build and deployment -> Source must be **GitHub Actions**
+  (this workflow publishes an artifact; it never creates a `gh-pages` branch). Without it the deploy job
+  fails at `configure-pages` with "Get Pages site failed ... Not Found".
 - `.github/dependabot.yaml` — pip + github-actions, monthly.
 
 `docs/CHANGELOG.md` is a symlink to the root `CHANGELOG.md` (bumpcalver writes the root file), so the docs
