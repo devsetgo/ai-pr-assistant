@@ -1,0 +1,28 @@
+{
+  "name": "ai-pr-assistant",
+  "image": "mcr.microsoft.com/devcontainers/python:3.14",
+  "features": {
+    // Lets you `docker build .` the Action's own image from inside the devcontainer.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    // For release/PR work against this repo (gh pr view, gh repo rename, etc.)
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "pip install -r requirements-dev.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions",
+        "sonarsource.sonarlint-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests"]
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}
