@@ -1,5 +1,5 @@
-name: 'Autofill PR Description with OpenAI'
-description: "Autofill you pull request with a high quality description by harvesting the power of OpenAI and ChatGPT"
+name: 'AI PR Assistant'
+description: "Autofill your pull request's description, title, and labels using OpenAI"
 inputs:
   github_token:
     description: 'The GitHub token'
@@ -18,29 +18,57 @@ inputs:
   openai_model:
     description: 'OpenAI model to use, needs to be compatible with the chat/completions endpoint'
     required: false
-    default: 'gpt-4o-mini'
+    default: 'gpt-5-mini'
   max_tokens:
-    description: 'Maximum number of prompt tokens to use'
+    description: 'Maximum number of output/completion tokens the model may generate'
     required: false
     default: '1000'
+  max_diff_tokens:
+    description: 'Maximum number of tokens worth of PR diff to send to the model, counted with the real tokenizer for the selected model'
+    required: false
+    default: '6000'
+  exclude_patterns:
+    description: 'Comma-separated glob patterns for files to exclude from the diff sent to the model, e.g. lockfiles or generated code'
+    required: false
+    default: '*.lock,package-lock.json,yarn.lock,pnpm-lock.yaml,*.min.js,*.svg,*.png,*.jpg,*.jpeg,*.gif,*.ico,dist/*,build/*'
   temperature:
-    description: 'Temperature for the model, higher values will make the model more creative, lower values will make it more conservative'
+    description: 'Temperature for the model, higher values will make the model more creative, lower values will make it more conservative. Ignored for reasoning models (e.g. gpt-5*, o1*, o3*), which only support the default temperature.'
     required: false
     default: '0.6'
   sample_prompt:
-    description: 'Sample prompt to use for the model, refer to SAMPLE_PROMPT in the Python file.'
+    description: 'Sample prompt to use for the model, refer to SAMPLE_PROMPT in pr_description/llm.py. Only used when generate_title, enable_labels and detect_breaking_changes are all disabled.'
     required: false
     default: ''
   sample_response:
-    description: 'A sample of an ideal response based on the sample prompt'
+    description: 'A sample of an ideal response based on the sample prompt. Only used when generate_title, enable_labels and detect_breaking_changes are all disabled.'
     required: false
     default: ''
   completion_prompt:
-    description: 'Prompt to use as the final prompt to the model, refer to COMPLETION_PROMPT in the Python file.'
+    description: 'Prompt to use as the final prompt to the model, refer to COMPLETION_PROMPT in pr_description/llm.py.'
     required: false
     default: ''
   overwrite_description:
     description: 'Overwrite the PR description if it already exists. This also means that the action will run on every PR update'
+    required: false
+    default: 'false'
+  generate_title:
+    description: 'Ask the model to also propose an improved pull request title'
+    required: false
+    default: 'false'
+  overwrite_title:
+    description: 'Actually apply the model-proposed title (requires generate_title). When false, the suggested title is only printed in the action log.'
+    required: false
+    default: 'false'
+  enable_labels:
+    description: 'Ask the model to choose labels (from label_taxonomy) for the pull request and apply them, creating any that do not yet exist in the repository'
+    required: false
+    default: 'false'
+  label_taxonomy:
+    description: 'Comma-separated list of labels the model is allowed to choose from when enable_labels is true'
+    required: false
+    default: 'bug,feature,enhancement,documentation,dependencies,refactor,test,chore'
+  detect_breaking_changes:
+    description: 'Ask the model to flag likely breaking changes; when detected, a note is prepended to the description and (if enable_labels is true) a "breaking-change" label is applied'
     required: false
     default: 'false'
   azure_endpoint:
