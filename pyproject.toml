@@ -1,0 +1,54 @@
+[project]
+name = "ai-pr-assistant"
+version = "26.09.19-001"
+description = "GitHub Action that autofills a pull request's description, title, and labels using OpenAI"
+requires-python = ">=3.12"
+
+[tool.bumpcalver]
+version_format = "{current_date}-{build_count:03}"
+date_format = "%y.%m.%d"
+timezone = "America/New_York"
+git_tag = true
+auto_commit = true
+
+[[tool.bumpcalver.file]]
+path = "pyproject.toml"
+file_type = "toml"
+variable = "project.version"
+
+[[tool.bumpcalver.file]]
+path = "pr_description/__init__.py"
+file_type = "python"
+variable = "__version__"
+
+[[tool.bumpcalver.file]]
+path = "sonar-project.properties"
+file_type = "properties"
+variable = "sonar.projectVersion"
+
+[tool.bumpcalver.changelog]
+enabled = true
+path = "CHANGELOG.md"
+heading = "## Latest Changes"
+ai_provider = "openai"
+ai_model = "gpt-4.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=pr_description --cov=scripts --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["pr_description", "scripts"]
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["site", "htmlcov"]
+
+[tool.ruff.lint]
+# E/F = pycodestyle/pyflakes, I = isort, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "UP", "B"]
+# Long lines are the formatter's job; the prompt strings in llm.py can't be wrapped.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pr_description"]

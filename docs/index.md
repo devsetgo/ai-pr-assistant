@@ -1,7 +1,9 @@
+<!-- Generated from README.md by scripts/sync_docs_index.py. Edit README.md, not this file. -->
+
 # `devsetgo/ai-pr-assistant` GitHub Action
 
-[![Tests](docs/badges/tests-badge.svg)](https://github.com/devsetgo/ai-pr-assistant/actions/workflows/test.yml)
-[![Test coverage](docs/badges/coverage-badge.svg)](https://github.com/devsetgo/ai-pr-assistant/actions/workflows/test.yml)
+[![Tests](badges/tests-badge.svg)](https://github.com/devsetgo/ai-pr-assistant/actions/workflows/test.yml)
+[![Test coverage](badges/coverage-badge.svg)](https://github.com/devsetgo/ai-pr-assistant/actions/workflows/test.yml)
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=coverage)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=devsetgo_ai-pr-assistant&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=devsetgo_ai-pr-assistant)
@@ -15,10 +17,10 @@ Inspired by the excellent work of [`platisd/openai-pr-description`](https://gith
 by Dimitris Platis, this project has since gone in its own direction —
 substantially updated for current OpenAI models (including the `gpt-5`
 family) and extended with optional title generation, auto-labeling and
-breaking-change detection. See the [migration guide](docs/MIGRATING.md) for
+breaking-change detection. See the [migration guide](MIGRATING.md) for
 its history and how it differs from upstream.
 
-![openai-pr-description-screenshot](docs/media/repo-1.png)
+![openai-pr-description-screenshot](media/repo-1.png)
 
 ## What does it do?
 
@@ -40,7 +42,7 @@ Optionally, it can also:
 
 All of these are opt-in and default to off, so a minimal workflow keeps the
 exact plain-description behavior described above. See
-the [configuration reference](docs/CONFIGURATION.md) for every input and how these
+the [configuration reference](CONFIGURATION.md) for every input and how these
 features interact.
 
 Keep in mind the OpenAI API is not free to use. That being said, so far it's been rather cheap,
@@ -76,13 +78,13 @@ That's it — every new pull request without a description will get one.
 ## Documentation
 
 - [**GitHub Pages site**](https://devsetgo.github.io/ai-pr-assistant/) — published docs built with Zensical
-- [**Setup guide**](docs/SETUP.md) — a full-capability example workflow and a step-by-step walkthrough
-- [**Configuration reference**](docs/CONFIGURATION.md) — every input, defaults,
+- [**Setup guide**](SETUP.md) — a full-capability example workflow and a step-by-step walkthrough
+- [**Configuration reference**](CONFIGURATION.md) — every input, defaults,
   classic vs. structured mode, and required permissions
-- [**Changelog**](docs/CHANGELOG.md)
-- [**Troubleshooting**](docs/TROUBLESHOOTING.md) — the `403` error, missing
+- [**Changelog**](CHANGELOG.md)
+- [**Troubleshooting**](TROUBLESHOOTING.md) — the `403` error, missing
   labels, and other common issues
-- [**History & migrating from `platisd/openai-pr-description`**](docs/MIGRATING.md)
+- [**History & migrating from `platisd/openai-pr-description`**](MIGRATING.md)
 - [**Action metadata (`action.yml`)**](https://github.com/devsetgo/ai-pr-assistant/blob/main/action.yml)
 
 ## Demo

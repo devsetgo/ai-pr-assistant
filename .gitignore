@@ -46,6 +46,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+report.xml
 *.cover
 *.py,cover
 .hypothesis/
@@ -131,3 +132,10 @@ dmypy.json
 # Ignore IDE folders
 .vscode/
 .idea/
+
+# Local working file written by the dsg-* skills
+TODO_TASKS.md
+
+# bumpcalver local undo data (backups + history with absolute local paths)
+.bumpcalver/
+bumpcalver-history.json
