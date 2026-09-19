@@ -101,11 +101,11 @@ PR_CONTENT_SCHEMA: dict[str, Any] = {
         "properties": {
             "description": {
                 "type": "string",
-                "description": "The pull request description, focusing on motivation and why the change improves the project.",
+                "description": "A one-to-two sentence summary followed by a bulleted list of key points, per the system prompt's formatting rules.",
             },
             "title": {
                 "type": ["string", "null"],
-                "description": "A concise, improved pull request title, or null if the existing title is already good.",
+                "description": "A Title Case title prefixed with its category (e.g. 'Enhancement: ...', 'Bug: ...'), per the system prompt's formatting rules.",
             },
             "labels": {
                 "type": "array",
@@ -258,10 +258,20 @@ def _structured_messages(
     system_content = (
         "You are a helpful assistant who writes pull request descriptions and prepares "
         "metadata about them. Respond only with JSON matching the given schema.\n"
-        "- description: focus on the motivation behind the change and why it improves "
-        "the project, go straight to the point.\n"
-        "- title: a concise, improved pull request title, or null if the existing title "
-        "is already good.\n"
+        "- description: start with a one-to-two sentence summary of the change and why "
+        "it matters, then a blank line, then a bulleted list (each line starting with "
+        "'- ') of the key points. Group bullets under short bold subheadings (e.g. "
+        "**CI/CD**, **Documentation**, **Dependencies**) when the change spans multiple "
+        "distinct areas. Keep each bullet to one line and focus on why it matters, not "
+        "just what changed.\n"
+        "- title: an improved pull request title, always in Title Case (capitalize each "
+        "significant word; keep short connector words like 'a', 'an', 'and', 'the', "
+        "'for', 'in', 'of', 'on', 'to' lowercase unless first), prefixed with the single "
+        "most representative category from the label taxonomy followed by a colon and a "
+        "space - e.g. 'Enhancement: Add Dark Mode Toggle' or 'Bug: Fix Crash On Empty "
+        "Input'. Use 'Breaking Change:' instead of a taxonomy category when "
+        "breaking_change is true. Always produce a title in this format, even if that "
+        "means only reformatting/re-prefixing the existing title.\n"
         "- labels: choose zero or more labels strictly from this list: "
         f"{', '.join(label_taxonomy) if label_taxonomy else '(none available)'}.\n"
         "- breaking_change: true only if the change could break existing consumers, "

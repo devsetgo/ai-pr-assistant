@@ -66,6 +66,12 @@ constrained by a JSON schema returns the description, title, labels, and
 breaking-change assessment together. `sample_prompt`/`sample_response` are not
 used in this mode — the schema itself constrains the response shape instead.
 
+In structured mode, the description is a short summary followed by a bulleted
+list of key points (grouped under subheadings for changes spanning multiple
+areas), and the title is Title Case, prefixed with its category — e.g.
+`Enhancement: Add Dark Mode Toggle` or `Bug: Fix Crash on Empty Input`
+(`Breaking Change:` instead when `detect_breaking_changes` finds one).
+
 If the API rejects a structured request (for example, an older Azure
 deployment or API version without structured-output support), the Action
 falls back once to a classic plain-text request rather than failing the run,
