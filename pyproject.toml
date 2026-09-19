@@ -1,6 +1,6 @@
 [project]
 name = "ai-pr-assistant"
-version = "26.09.18-001"
+version = "26.09.19-001"
 description = "GitHub Action that autofills a pull request's description, title, and labels using OpenAI"
 requires-python = ">=3.12"
 

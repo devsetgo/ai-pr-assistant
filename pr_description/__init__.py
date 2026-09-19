@@ -1,3 +1,3 @@
 """Implementation package for the `devsetgo/ai-pr-assistant` GitHub Action."""
 
-__version__ = "26.09.18-001"
+__version__ = "26.09.19-001"
