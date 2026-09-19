@@ -3,7 +3,10 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.14",
   "features": {
     // Lets you `docker build .` the Action's own image from inside the devcontainer.
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      // Debian trixie (the python:3.14 base image's OS) has no moby-cli packages yet.
+      "moby": false
+    },
     // For release/PR work against this repo (gh pr view, gh repo rename, etc.)
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
