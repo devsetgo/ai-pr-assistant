@@ -110,10 +110,12 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
   `coverage.xml` independently of test.yml (not shared via artifact) and normalizes the Cobertura
   `<sources>` block so Sonar resolves both `pr_description/foo.py`-style and bare `__init__.py`-style
   paths. Skipped for Dependabot PRs (no secret access).
-- `.github/workflows/release-drafter.yml` + `.github/release-drafter.yml` — drafts release notes on
-  push to `main`; autolabeler matches on **branch name**, and categories are aligned with the
-  labels this Action's own `enable_labels`/`label_taxonomy` and `breaking-change` label actually
-  produce.
+- `.github/workflows/release-drafter.yml` + `.github/release-drafter.yml` — Release Drafter v7 runs as two
+  jobs: the drafter drafts release notes on push to `main`, and the separate autolabeler action labels
+  PRs (`pull_request`, not `pull_request_target`, so fork PRs go unlabeled; Dependabot PRs are skipped
+  since Dependabot labels its own). The autolabeler matches on **branch name**, and categories (v7
+  `when: labels:` form) are aligned with the labels this Action's own `enable_labels`/`label_taxonomy`
+  and `breaking-change` label actually produce.
 - There is deliberately no version-bump workflow: `make bump` runs `bumpcalver` locally, creating the commit and
   tag; pushing them (`git push origin HEAD <tag>`) is a separate, manual step (`bumpcalver` does not push).
 - `.github/workflows/ai_pr_assistant.yml` — dogfoods the Action on this repo's own PRs (every input listed).
