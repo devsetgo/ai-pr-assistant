@@ -18,10 +18,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      - name: Autofill PR description if empty using OpenAI
+      - name: Autofill PR title, description, and labels using OpenAI
         uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           allowed_users: devsetgo
+          overwrite_description: true
+          generate_title: true
+          overwrite_title: true
           enable_labels: true
