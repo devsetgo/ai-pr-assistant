@@ -39,9 +39,13 @@ plan to touch your workflow file.
   parameters to those models is rejected by the API with a 400 error, which
   is what upstream would hit today if used with a `gpt-5*`/`o1*`/`o3*`
   model.
-- **`max_tokens` was always the output cap, not a prompt cap** — the
-  `action.yml` description previously (and misleadingly) called it "prompt
-  tokens." The behavior is unchanged; only the documentation was wrong.
+- **`max_tokens` now defaults to `2000` (was `1000`).** It was always the
+  output cap, not a prompt cap — the `action.yml` description previously (and
+  misleadingly) called it "prompt tokens." The default was raised because
+  reasoning models (`gpt-5*`, `o1*`, `o3*`, `o4*`) spend part of this budget on
+  hidden reasoning before writing any visible text, and 1000 could be used up
+  entirely on a large diff, leaving an empty description. If you set
+  `max_tokens` yourself, nothing changes for you.
 - **Diff truncation is now token-accurate.** Previously the diff sent to the
   model was cut at a hardcoded character count as a rough proxy for tokens.
   It's now measured with the real tokenizer for the selected model and
