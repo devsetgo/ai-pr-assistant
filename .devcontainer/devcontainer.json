@@ -18,7 +18,9 @@
         "ms-python.mypy-type-checker",
         "redhat.vscode-yaml",
         "github.vscode-github-actions",
-        "sonarsource.sonarlint-vscode"
+        "sonarsource.sonarlint-vscode",
+        "peakchen90.open-html-in-browser",
+        "Anthropic.claude-code"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",

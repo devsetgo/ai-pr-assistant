@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pr_description.github_api import GitHubApiError, GitHubClient
+from pr_description.github_api import GitHubApiError, GitHubClient, _build_session
 
 
 def _response(status_code=200, json_data=None, text="", links=None):
@@ -74,6 +74,14 @@ def test_ensure_labels_exist_tolerates_concurrent_creation(client):
     client.ensure_labels_exist(["bug"])
 
 
+def test_ensure_labels_exist_raises_for_non_422_creation_failure(client):
+    client.session.get.return_value = _response(json_data=[])
+    client.session.post.return_value = _response(status_code=500)
+
+    with pytest.raises(GitHubApiError):
+        client.ensure_labels_exist(["bug"])
+
+
 def test_add_labels_noop_for_empty_list(client):
     client.add_labels(42, [])
     client.session.post.assert_not_called()
@@ -85,3 +93,51 @@ def test_add_labels_posts_to_issue_labels_endpoint(client):
     url, kwargs = client.session.post.call_args
     assert url[0].endswith("/issues/42/labels")
     assert kwargs["json"] == {"labels": ["bug", "breaking-change"]}
+
+
+def test_build_session_mounts_https_retry_adapter():
+    session = _build_session()
+
+    assert "https://" in session.adapters
+    retries = session.adapters["https://"].max_retries
+    assert retries.total == 3
+    assert retries.backoff_factor == 1
+    assert set(retries.allowed_methods) == {"GET", "POST", "PATCH"}
+
+
+def test_get_pull_request_files_raises_on_error_page(client):
+    client.session.get.return_value = _response(status_code=500)
+
+    with pytest.raises(GitHubApiError):
+        client.get_pull_request_files(42)
+
+
+def test_update_title_patches_issue_endpoint(client):
+    client.session.patch.return_value = _response()
+
+    client.update_title(42, "new title")
+
+    url, kwargs = client.session.patch.call_args
+    assert url[0].endswith("/issues/42")
+    assert kwargs["json"] == {"title": "new title"}
+
+
+def test_update_description_raises_when_patch_fails(client):
+    client.session.patch.return_value = _response(status_code=500, text="bad")
+
+    with pytest.raises(GitHubApiError):
+        client.update_description(42, "new body")
+
+
+def test_list_label_names_raises_on_error(client):
+    client.session.get.return_value = _response(status_code=500)
+
+    with pytest.raises(GitHubApiError):
+        client.list_label_names()
+
+
+def test_add_labels_raises_when_request_fails(client):
+    client.session.post.return_value = _response(status_code=500)
+
+    with pytest.raises(GitHubApiError):
+        client.add_labels(42, ["bug"])

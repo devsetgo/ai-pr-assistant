@@ -129,3 +129,35 @@ def test_generate_pr_content_falls_back_when_structured_output_rejected():
     assert result["description"] == "Plain text description"
     assert result["title"] is None
     assert client.chat.completions.create.call_count == 2
+
+
+def test_build_client_uses_openai_when_no_azure_endpoint(monkeypatch):
+    openai_client = object()
+    mock_openai = MagicMock(return_value=openai_client)
+    monkeypatch.setattr(llm.openai, "OpenAI", mock_openai)
+
+    client = llm.build_client("k", max_retries=9)
+
+    assert client is openai_client
+    mock_openai.assert_called_once_with(api_key="k", max_retries=9)
+
+
+def test_build_client_uses_azure_client_when_endpoint_set(monkeypatch):
+    azure_client = object()
+    mock_azure = MagicMock(return_value=azure_client)
+    monkeypatch.setattr(llm.openai, "AzureOpenAI", mock_azure)
+
+    client = llm.build_client("k", azure_endpoint="https://example.azure.com", azure_api_version="2024-06-01")
+
+    assert client is azure_client
+    mock_azure.assert_called_once_with(
+        api_key="k",
+        azure_endpoint="https://example.azure.com",
+        api_version="2024-06-01",
+        max_retries=3,
+    )
+
+
+def test_require_content_raises_on_none():
+    with pytest.raises(ValueError):
+        llm._require_content(None)

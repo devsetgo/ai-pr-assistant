@@ -44,7 +44,7 @@ jobs:
             beta) FLAG="--beta" ;;
             rc) FLAG="--rc" ;;
           esac
-          RESULT=$(bumpcalver $FLAG --json)
+          RESULT=$(bumpcalver $FLAG --update-changelog --json)
           echo "$RESULT"
           VERSION=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"

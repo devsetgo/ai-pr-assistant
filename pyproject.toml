@@ -26,6 +26,13 @@ path = "sonar-project.properties"
 file_type = "properties"
 variable = "sonar.projectVersion"
 
+[tool.bumpcalver.changelog]
+enabled = true
+path = "CHANGELOG.md"
+heading = "## Latest Changes"
+ai_provider = "openai"
+ai_model = "gpt-4.1"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=pr_description --cov-report=term-missing --cov-report=html"

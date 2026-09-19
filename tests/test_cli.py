@@ -124,3 +124,42 @@ def test_breaking_change_prepends_note_and_applies_label(monkeypatch, github_cli
     applied = set(github_client.ensure_labels_exist.call_args.args[0])
     assert applied == {"bug", "breaking-change"}
     github_client.add_labels.assert_called_once()
+
+
+def test_returns_error_when_get_pull_request_fails(github_client, generate_pr_content):
+    github_client.get_pull_request.side_effect = cli.GitHubApiError("boom")
+
+    assert cli.main(BASE_ARGV) == 1
+
+    generate_pr_content.assert_not_called()
+
+
+def test_returns_error_when_get_pull_request_files_fails(github_client, generate_pr_content):
+    github_client.get_pull_request_files.side_effect = cli.GitHubApiError("boom")
+
+    assert cli.main(BASE_ARGV) == 1
+
+    generate_pr_content.assert_not_called()
+
+
+def test_returns_error_when_update_description_fails(github_client, generate_pr_content):
+    github_client.update_description.side_effect = cli.GitHubApiError("boom")
+
+    assert cli.main(BASE_ARGV) == 1
+
+
+def test_returns_error_when_update_title_fails(monkeypatch, github_client, generate_pr_content):
+    generate_pr_content.return_value["title"] = "Better title"
+    monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")
+    monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "true")
+    github_client.update_title.side_effect = cli.GitHubApiError("boom")
+
+    assert cli.main(BASE_ARGV) == 1
+
+
+def test_returns_error_when_label_update_fails(monkeypatch, github_client, generate_pr_content):
+    generate_pr_content.return_value["labels"] = ["bug"]
+    monkeypatch.setenv("INPUT_ENABLE_LABELS", "true")
+    github_client.ensure_labels_exist.side_effect = cli.GitHubApiError("boom")
+
+    assert cli.main(BASE_ARGV) == 1

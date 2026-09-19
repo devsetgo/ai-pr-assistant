@@ -43,7 +43,7 @@ docker build -t ai-pr-assistant .
 
 # Version bump (CalVer via BumpCalver) — normally run through the manual
 # "Version Bump" GitHub Actions workflow (workflow_dispatch: build/beta/rc), not locally
-bumpcalver --build --dry-run --json   # preview what a bump would do, without writing/tagging
+bumpcalver --build --update-changelog --dry-run --json  # preview the version bump + changelog entry
 ```
 
 No lint/format tool is configured yet — don't assume `ruff`/`black`/`flake8` exist here.
