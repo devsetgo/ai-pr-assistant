@@ -5,6 +5,11 @@ on: pull_request
 jobs:
   ai-pr-assistant:
     runs-on: ubuntu-latest
+    # Dependabot PRs get a read-only GITHUB_TOKEN and no custom secrets on the
+    # pull_request event, so OPENAI_API_KEY would be empty here. allowed_users
+    # already excludes dependabot[bot] before any OpenAI call is made, but
+    # this guard makes that explicit rather than incidental (matches sonar.yaml).
+    if: github.actor != 'dependabot[bot]'
 
     steps:
       - uses: actions/checkout@v7
