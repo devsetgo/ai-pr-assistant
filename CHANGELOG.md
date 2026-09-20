@@ -3,6 +3,37 @@
 All notable changes to this project will be documented in this file.
 
 ## Latest Changes
+### 26.09.20-001
+
+#### What's Changed
+* Add Claude provider, attribution footer, and GPT-6 support
+* Refactor: drop the unused temperature parameter from the Claude path
+* Add changelog automation, docs tooling, and demo sections for BumpCalver and pydantic-schemaforms
+* Adopt Zensical docs with GitHub Pages workflow; document the Pages setting and state that the max_tokens default rose from 1000 to 2000
+* Declare mypy, raise dev-dependency floors, add ruff + pre-commit, and improve repo hygiene (e.g., .dockerignore, changelog symlink, footer license, gitignore bumpcalver's local backups)
+* Migrate Release Drafter to v7 layout and add Release Drafter workflow/config
+* Run the docs build on PRs/pushes and deploy from its artifact
+* Fix: honor sample_prompt/sample_response and clarify error handling
+* Add SonarCloud quality badges, HTML coverage, BumpCalver versioning, and Dependabot
+* Track sonar.projectVersion via BumpCalver and flesh out sonar-project.properties
+* Add CLAUDE.md, License section, and Python 3.14 devcontainer
+* Rebrand hard fork as ai-pr-assistant, split docs, update license, and reframe as inspired-by
+* Make the dogfood workflow a full showcase of every action input, keep title/description/labels refreshed, enable labels, and grant additional permissions (pull-requests:write, issues:write)
+* Add explicit Dependabot guard to the dogfood workflow
+* Raise default max_tokens and guard against empty generated descriptions
+* Stop mounting the retry adapter on http:// (fixes SonarCloud S5332)
+* Fix GPT-5 request params, restructure into a package, add opt-in features, and use gpt-5 model by default
+* Support AzureOpenAI client and use the latest openai Python module
+* Use gpt-4o-mini (cheaper and better)
+* Allow users to opt-in for existing PR description overwrite and customize the completion prompt
+* Migrate to OpenAI v1 library
+* Add pr-description action
+* Various documentation, naming, and clarity improvements (README, argument order, error explanations, debug info, and house style)
+* Update Dockerfile and bump Docker base image/pinned GitHub Actions
+* Initial project presentation, setup, and Python script improvements
+
+Generated Date: 2026 September 20, 17:59
+
 ### 26.09.19-002
 
 _Changes since 26.09.19-001._
