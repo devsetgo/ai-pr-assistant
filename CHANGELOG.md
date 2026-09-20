@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 ## Latest Changes
+### 26.09.20-002
+
+_Changes since 26.09.20-001._
+
+#### What's Changed
+* CI improvements: actions are now pinned to SHAs and Docker image dependencies are hash-locked
+
+Generated Date: 2026 September 20, 19:02
+
 ### 26.09.20-001
 
 #### What's Changed
