@@ -87,7 +87,19 @@ That's it — every new pull request without a description will get one.
 
 ## Demo
 
-Coming soon.
+These examples show the kind of developer tooling and product surfaces this project is designed to complement.
+
+### [BumpCalver](https://github.com/devsetgo/bumpcalver)
+
+BumpCalver is my calendar-versioning library for Python that helps manage versions while also maintaining a changelog. It keeps versioning and release notes aligned, making release management more predictable and easier to automate.
+
+![BumpCalver dashboard screenshot](docs/media/bumpcalver-1.png)
+
+### [pydantic-schemaforms](https://github.com/devsetgo/pydantic-schemaforms)
+
+`pydantic-schemaforms` is a modern Python library that generates dynamic HTML forms from Pydantic 2.x+ models. It is designed for server-rendered apps: you define a model and optional UI hints, and get back ready-to-embed HTML with validation and framework styling.
+
+![pydantic-schemaforms screenshot](docs/media/pydantic-schemaform-1.png)
 
 ## License
 
