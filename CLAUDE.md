@@ -51,8 +51,11 @@ mypy pr_description --python-version 3.12 --ignore-missing-imports
 pre-commit install                     # one-time; the devcontainer does this in postCreateCommand
 pre-commit run --all-files             # or: make lint (check only) / make format (apply fixes)
 
-# Build the actual Action image
+# Build the actual Action image (installs from the hash-locked requirements.lock)
 docker build -t ai-pr-assistant .
+make lock                              # regenerate requirements.lock from requirements.txt (pip-compile, hashed,
+                                       # wheels-only); rerun after ANY change to requirements.txt — tests/test_packaging.py
+                                       # fails if the lock is stale, and .dockerignore must keep whitelisting the lock
 
 # Version bump (CalVer via BumpCalver) — run locally, never from CI
 make bump-preview                      # dry run: shows the next version + changelog entry

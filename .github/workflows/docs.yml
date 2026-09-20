@@ -47,7 +47,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - run: pip install -r requirements-dev.txt
+      - run: "pip install --only-binary :all: -r requirements-dev.txt"
       - run: python scripts/sync_docs_index.py
       - run: zensical build --clean --strict
       - uses: actions/upload-pages-artifact@v5
