@@ -24,7 +24,7 @@ LOAD_ENV = if [ -f .env ]; then set -a; . ./.env; set +a; fi
 # Version management helper (local binary fallback in some devcontainers)
 BUMPCALVER = $(if $(wildcard $(HOME)/.local/bin/bumpcalver),$(HOME)/.local/bin/bumpcalver,bumpcalver)
 
-.PHONY: help install hooks lint format docs-index test test-file test-one typecheck docker-build bump-preview bump docs-build docs-serve clean git-cleanup
+.PHONY: help install hooks lint format docs-index test test-file test-one typecheck lock docker-build bump-preview bump docs-build docs-serve clean git-cleanup
 
 help: ## Display this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_.-]+:.*?##/ { printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -69,6 +69,9 @@ test-one: ## Run one pytest node (override with TEST_NODE=...)
 
 typecheck: ## Run mypy for the action package
 	mypy pr_description --python-version 3.12 --ignore-missing-imports
+
+lock: ## Regenerate requirements.lock (hashed, wheels-only) that the Docker image installs from
+	pip-compile --generate-hashes --strip-extras --pip-args "--only-binary=:all:" --output-file requirements.lock requirements.txt
 
 docker-build: ## Build the GitHub Action Docker image
 	docker build -t $(IMAGE_NAME) .

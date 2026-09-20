@@ -5,7 +5,7 @@
 !entrypoint.sh
 !autofill_description.py
 !pr_description
-!requirements.txt
+!requirements.lock
 
 **/__pycache__
 **/*.py[cod]
