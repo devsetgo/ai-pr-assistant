@@ -1,12 +1,21 @@
 name: 'AI PR Assistant'
-description: "Autofill your pull request's description, title, and labels using OpenAI"
+description: "Autofill your pull request's description, title, and labels using OpenAI or Claude"
 inputs:
   github_token:
     description: 'The GitHub token'
     required: true
+  provider:
+    description: 'Which AI provider to use: "openai" (also covers Azure OpenAI) or "anthropic" (Claude, via the direct Anthropic API)'
+    required: false
+    default: 'openai'
   openai_api_key:
-    description: 'OpenAI API key'
-    required: true
+    description: 'OpenAI API key. Required when provider is openai.'
+    required: false
+    default: ''
+  anthropic_api_key:
+    description: 'Anthropic API key. Required when provider is anthropic.'
+    required: false
+    default: ''
   pull_request_id:
     description: 'Pull request id (otherwise attempt to extract it from the GitHub metadata)'
     required: false
@@ -16,15 +25,19 @@ inputs:
     required: false
     default: ''
   openai_model:
-    description: 'OpenAI model to use, needs to be compatible with the chat/completions endpoint'
+    description: 'OpenAI model to use when provider is openai, needs to be compatible with the chat/completions endpoint'
     required: false
     default: 'gpt-5-mini'
+  anthropic_model:
+    description: 'Claude model to use when provider is anthropic, e.g. claude-haiku-4-5-20251001, claude-sonnet-5 or claude-opus-5. Models that think by default (Sonnet 5, Opus 5) spend part of max_tokens on thinking, so give them more headroom.'
+    required: false
+    default: 'claude-haiku-4-5-20251001'
   max_tokens:
-    description: 'Maximum number of output/completion tokens the model may generate. Reasoning models (gpt-5*, o1*, o3*, o4*) spend part of this budget on hidden reasoning tokens before any visible output, so a large diff can need more headroom than a classic model would.'
+    description: 'Maximum number of output/completion tokens the model may generate. Reasoning models (gpt-5*, gpt-6*, o1*, o3*, o4*) spend part of this budget on hidden reasoning tokens before any visible output, so a large diff can need more headroom than a classic model would.'
     required: false
     default: '2000'
   max_diff_tokens:
-    description: 'Maximum number of tokens worth of PR diff to send to the model, counted with the real tokenizer for the selected model'
+    description: 'Maximum number of tokens worth of PR diff to send to the model, counted with the real tokenizer for the selected OpenAI model (an approximation for Claude models)'
     required: false
     default: '6000'
   exclude_patterns:
@@ -32,7 +45,7 @@ inputs:
     required: false
     default: '*.lock,package-lock.json,yarn.lock,pnpm-lock.yaml,*.min.js,*.svg,*.png,*.jpg,*.jpeg,*.gif,*.ico,dist/*,build/*'
   temperature:
-    description: 'Temperature for the model, higher values will make the model more creative, lower values will make it more conservative. Ignored for reasoning models (e.g. gpt-5*, o1*, o3*), which only support the default temperature.'
+    description: 'Temperature for the model, higher values will make the model more creative, lower values will make it more conservative. Ignored for reasoning models (e.g. gpt-5*, gpt-6*, o1*, o3*), which only support the default temperature, and always ignored when provider is anthropic.'
     required: false
     default: '0.6'
   sample_prompt:
@@ -71,8 +84,12 @@ inputs:
     description: 'Ask the model to flag likely breaking changes; when detected, a note is prepended to the description and (if enable_labels is true) a "breaking-change" label is applied'
     required: false
     default: 'false'
+  attribution:
+    description: 'Append a small "Created using devsetgo/ai-pr-assistant with <model>" footer to the generated description. Set to false to omit it.'
+    required: false
+    default: 'true'
   azure_endpoint:
-    description: 'Azure endpoint for OpenAI, if you are using Azure. Setting this will make the action use Azure OpenAI.'
+    description: 'Azure endpoint for OpenAI, if you are using Azure. Setting this will make the action use Azure OpenAI. Only applies when provider is openai.'
     required: false
     default: ''
   azure_openai_api_version:

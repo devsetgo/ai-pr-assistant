@@ -71,8 +71,9 @@ Ruff is the only lint/format tool (`.pre-commit-config.yaml` pins its version; k
 `INPUT_PULL_REQUEST_ID` isn't set) → `autofill_description.py` (thin shim, kept only so the Docker
 `ENTRYPOINT` and existing invocation keep working) → `pr_description.cli.main()`, which does
 everything else. All non-required action inputs are read directly from `INPUT_*` env vars inside
-`cli.py` (GitHub Actions populates these from `action.yml` defaults) — only the required inputs
-arrive as CLI flags.
+`cli.py` (GitHub Actions populates these from `action.yml` defaults) — only the GitHub token, PR
+number and the two API keys arrive as CLI flags. Neither API key is individually required: `cli.py`
+checks the one for the selected `provider`.
 
 **`pr_description/` package**, in call order from `cli.main()`:
 - `github_api.py` — `GitHubClient` wraps the handful of GitHub REST calls needed (get PR, get
@@ -84,6 +85,14 @@ arrive as CLI flags.
   matching `exclude_patterns` (glob), then token-budgets the rest using `tiktoken` against the
   target model's real encoding (`max_diff_tokens`), truncating the file that crosses the budget
   rather than dropping it.
+- `llm_anthropic.py` — the Claude counterpart of `llm.py` (`provider: anthropic`, direct Anthropic
+  API only): same classic/structured paths and the same `PRContent` result, reusing `llm.py`'s
+  prompts, schema (`structured_system_prompt`, `PR_CONTENT_SCHEMA["schema"]` — the bare schema, not
+  OpenAI's wrapper) and `parse_structured_payload`. Keep Anthropic SDK calls in this module, not in
+  `llm.py`. **Never send `temperature`**: several current Claude models (Sonnet 5, Opus 5/4.8/4.7) reject
+  sampling params and the 1.x SDK dropped them from `messages.create`. A `refusal` stop reason raises `AnthropicRefusalError`
+  (an `anthropic.AnthropicError`, so `cli.py` reports it as a failed request); a reply with no text
+  block returns `""` so the empty-description guard in `cli.py` applies.
 - `llm.py` — builds the OpenAI/Azure OpenAI client and the request. Two message-building paths:
   - **Classic**: few-shot (`SAMPLE_PROMPT`/`GOOD_SAMPLE_RESPONSE`) → plain-text description. This is
     the original upstream behavior, preserved for backward compatibility.
@@ -92,7 +101,7 @@ arrive as CLI flags.
     `openai.BadRequestError` (e.g. an older Azure deployment without structured-output support).
   - `generate_pr_content()` picks classic vs. structured based on whether the caller set
     `structured=True`; `cli.py` sets it to `generate_title or enable_labels or detect_breaking_changes`.
-  - **Model-family quirk, don't regress this**: "reasoning" models (`gpt-5*`, `o1*`, `o3*`, `o4*` —
+  - **Model-family quirk, don't regress this**: "reasoning" models (`gpt-5*`, `gpt-6*`, `o1*`, `o3*`, `o4*` —
     see `REASONING_MODEL_PREFIXES`) reject a custom `temperature` and require
     `max_completion_tokens` instead of `max_tokens` on Chat Completions. `_completion_kwargs()` is
     the single place that branches on this — route any new request-building code through it rather
@@ -102,7 +111,7 @@ arrive as CLI flags.
   only write the title if `generate_title and overwrite_title`, only touch labels if `enable_labels`.
 
 **Tests** mock `requests`/the OpenAI client via `unittest.mock` — no live network calls. `tests/`
-mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `test_diff_filter.py`).
+mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `test_llm_anthropic.py`, `test_diff_filter.py`).
 
 ## CI/CD
 

@@ -25,7 +25,7 @@ permissions:
 This should not happen with the models this Action's `openai_model` default
 targets, but if you've pointed `openai_model` at a newer "reasoning" model
 family not yet in the `REASONING_MODEL_PREFIXES` list in
-`pr_description/llm.py` (currently `gpt-5*`, `o1*`, `o3*`, `o4*`), the Action
+`pr_description/llm.py` (currently `gpt-5*`, `gpt-6*`, `o1*`, `o3*`, `o4*`), the Action
 may still send an unsupported `temperature`/`max_tokens` combination for it.
 Open an issue (or a PR extending that list) with the model name.
 

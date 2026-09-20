@@ -12,6 +12,9 @@ from pr_description import llm
     [
         ("gpt-5-mini", True),
         ("gpt-5", True),
+        ("gpt-5.6-terra", True),
+        ("gpt-6-astra", True),
+        ("GPT-6-Astra", True),  # matching is case-insensitive
         ("o1-preview", True),
         ("o3-mini", True),
         ("gpt-4o-mini", False),
@@ -39,6 +42,47 @@ def test_completion_kwargs_for_classic_model_includes_temperature():
         "gpt-4o-mini", temperature=0.6, max_tokens=500, reasoning_override=None
     )
     assert kwargs == {"max_tokens": 500, "temperature": 0.6}
+
+
+def test_completion_kwargs_for_gpt_6_omits_temperature():
+    """GPT-6 Astra rejects custom temperature, so it must be treated as reasoning."""
+    kwargs = llm._completion_kwargs(
+        "gpt-6-astra", temperature=0.6, max_tokens=500, reasoning_override=None
+    )
+    assert kwargs == {"max_completion_tokens": 500}
+
+
+@pytest.mark.parametrize("structured", [False, True])
+def test_gpt_6_request_has_no_temperature_or_max_tokens(structured):
+    client = MagicMock()
+    content = json.dumps(
+        {
+            "description": "Adds a feature",
+            "title": None,
+            "labels": [],
+            "breaking_change": False,
+            "breaking_change_notes": None,
+        }
+    )
+    client.chat.completions.create.return_value = _mock_response(
+        content if structured else "Adds a feature"
+    )
+
+    llm.generate_pr_content(
+        client,
+        "gpt-6-astra",
+        "Add feature",
+        "some diff",
+        structured=structured,
+        temperature=0.6,
+        max_tokens=500,
+    )
+
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert kwargs["model"] == "gpt-6-astra"
+    assert kwargs["max_completion_tokens"] == 500
+    assert "temperature" not in kwargs
+    assert "max_tokens" not in kwargs
 
 
 def test_strip_redundant_prefix():

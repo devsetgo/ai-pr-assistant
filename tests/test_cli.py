@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import openai
@@ -82,7 +83,7 @@ def test_proceeds_when_author_is_allowed(
 
     assert cli.main(BASE_ARGV) == 0
 
-    github_client.update_description.assert_called_once_with(42, "Adds a feature")
+    github_client.update_description.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -128,11 +129,44 @@ def test_returns_error_when_openai_request_fails(
     github_client.update_description.assert_not_called()
 
 
-def test_happy_path_updates_description(github_client, generate_pr_content):
+def test_happy_path_updates_description(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "false")
+
     assert cli.main(BASE_ARGV) == 0
+
     github_client.update_description.assert_called_once_with(42, "Adds a feature")
     github_client.update_title.assert_not_called()
     github_client.add_labels.assert_not_called()
+
+
+def test_attribution_footer_is_appended_by_default(github_client, generate_pr_content):
+    assert cli.main(BASE_ARGV) == 0
+
+    description_arg = github_client.update_description.call_args.args[1]
+    assert description_arg.startswith("Adds a feature\n\n---\n<sub>")
+    assert "devsetgo/ai-pr-assistant" in description_arg
+    assert "with gpt-5-mini</sub>" in description_arg
+
+
+def test_attribution_footer_names_the_configured_model(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_OPENAI_MODEL", "gpt-4.1")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    description_arg = github_client.update_description.call_args.args[1]
+    assert description_arg.endswith("with gpt-4.1</sub>")
+
+
+def test_attribution_can_be_disabled(monkeypatch, github_client, generate_pr_content):
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "false")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    github_client.update_description.assert_called_once_with(42, "Adds a feature")
 
 
 def test_empty_description_is_not_written(github_client, generate_pr_content):
@@ -271,3 +305,115 @@ def test_every_action_input_is_read_by_the_code(input_name):
         REPO_ROOT / "entrypoint.sh"
     ).read_text()
     assert f"INPUT_{input_name.upper()}" in sources
+
+
+ANTHROPIC_ARGV = [*BASE_ARGV, "--anthropic-api-key", "sk-ant-test"]
+
+
+@pytest.fixture
+def anthropic_llm(monkeypatch):
+    """Stub out the Anthropic client and generation, like `generate_pr_content`."""
+    result = {
+        "description": "Adds a feature",
+        "title": None,
+        "labels": [],
+        "breaking_change": False,
+        "breaking_change_notes": None,
+    }
+    generate = MagicMock(return_value=result)
+    build_client = MagicMock()
+    monkeypatch.setattr(cli.llm_anthropic, "generate_pr_content", generate)
+    monkeypatch.setattr(cli.llm_anthropic, "build_client", build_client)
+    return SimpleNamespace(generate=generate, build_client=build_client)
+
+
+def test_default_provider_is_openai_and_ignores_the_anthropic_key(
+    github_client, generate_pr_content
+):
+    assert cli.main(ANTHROPIC_ARGV) == 0
+
+    cli.llm.build_client.assert_called_once_with("sk-test", "", "")
+    assert generate_pr_content.call_args.args[1] == "gpt-5-mini"
+    assert generate_pr_content.call_args.kwargs["temperature"] == 0.6
+
+
+def test_anthropic_provider_uses_claude_client_key_and_haiku_default(
+    monkeypatch, github_client, anthropic_llm, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_PROVIDER", "anthropic")
+
+    assert cli.main(ANTHROPIC_ARGV) == 0
+
+    anthropic_llm.build_client.assert_called_once_with("sk-ant-test")
+    assert anthropic_llm.generate.call_args.args[1] == "claude-haiku-4-5-20251001"
+    # Claude's generate_pr_content takes no temperature, so none may be passed.
+    assert "temperature" not in anthropic_llm.generate.call_args.kwargs
+    generate_pr_content.assert_not_called()
+
+
+def test_anthropic_model_input_is_used_and_named_in_the_footer(
+    monkeypatch, github_client, anthropic_llm
+):
+    monkeypatch.setenv("INPUT_PROVIDER", "anthropic")
+    monkeypatch.setenv("INPUT_ANTHROPIC_MODEL", "claude-sonnet-5")
+    # Must not leak in: openai_model only applies to the openai provider.
+    monkeypatch.setenv("INPUT_OPENAI_MODEL", "gpt-4.1")
+
+    assert cli.main(ANTHROPIC_ARGV) == 0
+
+    assert anthropic_llm.generate.call_args.args[1] == "claude-sonnet-5"
+    description_arg = github_client.update_description.call_args.args[1]
+    assert description_arg.endswith("with claude-sonnet-5</sub>")
+
+
+def test_provider_is_case_and_whitespace_insensitive(
+    monkeypatch, github_client, anthropic_llm
+):
+    monkeypatch.setenv("INPUT_PROVIDER", " Anthropic ")
+
+    assert cli.main(ANTHROPIC_ARGV) == 0
+
+    anthropic_llm.generate.assert_called_once()
+
+
+def test_unknown_provider_fails_before_touching_github(
+    monkeypatch, capsys, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_PROVIDER", "gemini")
+
+    assert cli.main(ANTHROPIC_ARGV) == 1
+
+    assert "Unknown provider 'gemini'" in capsys.readouterr().out
+    github_client.get_pull_request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("provider", "argv"),
+    [
+        ("anthropic", BASE_ARGV),  # only the OpenAI key is set
+        ("openai", ["--anthropic-api-key", "sk-ant-test", *BASE_ARGV[:-2]]),
+    ],
+)
+def test_missing_api_key_for_the_selected_provider_fails(
+    monkeypatch, capsys, github_client, generate_pr_content, provider, argv
+):
+    monkeypatch.setenv("INPUT_PROVIDER", provider)
+
+    assert cli.main(argv) == 1
+
+    assert f"requires the {provider}_api_key input" in capsys.readouterr().out
+    github_client.get_pull_request.assert_not_called()
+
+
+def test_returns_error_when_anthropic_request_fails(
+    monkeypatch, capsys, github_client, anthropic_llm
+):
+    monkeypatch.setenv("INPUT_PROVIDER", "anthropic")
+    anthropic_llm.generate.side_effect = cli.llm_anthropic.AnthropicRefusalError(
+        "declined"
+    )
+
+    assert cli.main(ANTHROPIC_ARGV) == 1
+
+    assert "Anthropic request failed: declined" in capsys.readouterr().out
+    github_client.update_description.assert_not_called()
