@@ -101,7 +101,6 @@ def generate_pr_content(
     completion_prompt: str,
     *,
     structured: bool,
-    temperature: float = 0.6,
     max_tokens: int = 1000,
     sample_prompt: str = llm.SAMPLE_PROMPT,
     sample_response: str = llm.GOOD_SAMPLE_RESPONSE,
@@ -115,6 +114,10 @@ def generate_pr_content(
     JSON (e.g. truncated at ``max_tokens``), this falls back once to the
     classic plain-text request rather than failing the whole run.
 
+    There is deliberately no ``temperature`` parameter: several current Claude
+    models (Sonnet 5, Opus 5/4.8/4.7) reject sampling parameters, and the 1.x
+    SDK no longer exposes them on ``messages.create``.
+
     Args:
         client: A client from :func:`build_client`.
         model: The Claude model to call, e.g. ``"claude-haiku-4-5-20251001"``.
@@ -123,10 +126,6 @@ def generate_pr_content(
         structured: When ``True``, request the JSON-schema response carrying
             title/labels/breaking-change fields; when ``False``, use the
             original plain-text, few-shot behavior.
-        temperature: Accepted for parity with the OpenAI path but ignored:
-            several current Claude models (Sonnet 5, Opus 5/4.8/4.7) reject
-            sampling parameters, and the 1.x SDK no longer exposes them on
-            ``messages.create``, so it is never sent for any model.
         max_tokens: Maximum number of output tokens to generate.
         sample_prompt: Few-shot example prompt, classic mode only.
         sample_response: Few-shot example response, classic mode only.

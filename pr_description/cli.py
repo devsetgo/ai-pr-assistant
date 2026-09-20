@@ -224,12 +224,16 @@ def main(argv: list[str] | None = None) -> int:
 
     client: Any  # OpenAI or Anthropic client; mypy would narrow it per branch
     generate_pr_content: Callable[..., llm.PRContent]
+    # Only OpenAI takes a temperature; Claude's generate_pr_content has no such
+    # parameter (see its docstring), so it must not be passed there.
+    sampling: dict[str, Any] = {}
     if provider == "anthropic":
         client = llm_anthropic.build_client(api_key)
         generate_pr_content = llm_anthropic.generate_pr_content
     else:
         client = llm.build_client(api_key, azure_endpoint, azure_api_version)
         generate_pr_content = llm.generate_pr_content
+        sampling["temperature"] = temperature
     structured = generate_title or enable_labels or detect_breaking_changes
 
     try:
@@ -239,11 +243,11 @@ def main(argv: list[str] | None = None) -> int:
             pull_request_title,
             completion_prompt,
             structured=structured,
-            temperature=temperature,
             max_tokens=max_tokens,
             sample_prompt=sample_prompt,
             sample_response=sample_response,
             label_taxonomy=label_taxonomy,
+            **sampling,
         )
     except (openai.OpenAIError, anthropic.AnthropicError) as error:
         print(f"{PROVIDER_LABELS[provider]} request failed: {error}")

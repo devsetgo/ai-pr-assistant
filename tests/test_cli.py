@@ -334,6 +334,7 @@ def test_default_provider_is_openai_and_ignores_the_anthropic_key(
 
     cli.llm.build_client.assert_called_once_with("sk-test", "", "")
     assert generate_pr_content.call_args.args[1] == "gpt-5-mini"
+    assert generate_pr_content.call_args.kwargs["temperature"] == 0.6
 
 
 def test_anthropic_provider_uses_claude_client_key_and_haiku_default(
@@ -345,6 +346,8 @@ def test_anthropic_provider_uses_claude_client_key_and_haiku_default(
 
     anthropic_llm.build_client.assert_called_once_with("sk-ant-test")
     assert anthropic_llm.generate.call_args.args[1] == "claude-haiku-4-5-20251001"
+    # Claude's generate_pr_content takes no temperature, so none may be passed.
+    assert "temperature" not in anthropic_llm.generate.call_args.kwargs
     generate_pr_content.assert_not_called()
 
 

@@ -45,7 +45,6 @@ def test_classic_path_returns_plain_description():
         "Add feature",
         "some diff",
         structured=False,
-        temperature=0.9,
         max_tokens=1234,
     )
 
@@ -62,7 +61,7 @@ def test_classic_path_returns_plain_description():
     assert kwargs["system"] == llm.CLASSIC_SYSTEM_PROMPT
     assert kwargs["messages"][0]["role"] == "user"
     assert "some diff" in kwargs["messages"][-1]["content"]
-    # Sampling parameters are never sent, whatever `temperature` says.
+    # Sampling parameters are never sent.
     assert "temperature" not in kwargs
     assert "output_config" not in kwargs
 
