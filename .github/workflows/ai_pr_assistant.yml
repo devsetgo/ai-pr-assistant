@@ -33,6 +33,9 @@ jobs:
           # ---- Required ----
           github_token: ${{ secrets.GITHUB_TOKEN }}    # token used for all GitHub API calls (read PR/files, write description/title/labels)
           openai_api_key: ${{ secrets.OPENAI_API_KEY }} # OpenAI (or Azure OpenAI) API key
+          # provider: 'openai'                  # 'openai' (default) or 'anthropic'; anthropic needs anthropic_api_key + optionally anthropic_model
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # anthropic_model: 'claude-haiku-4-5-20251001'
 
           # ---- Core behavior ----
           # pull_request_id: ''                # which PR to act on; auto-extracted from the event payload, only needed for manual/workflow_dispatch-style runs
@@ -62,6 +65,9 @@ jobs:
 
           # ---- Breaking-change detection ----
           detect_breaking_changes: true         # flag likely breaking changes with a note in the description + a breaking-change label
+
+          # ---- Attribution ----
+          attribution: true                     # append a small "Created using devsetgo/ai-pr-assistant with <model>" footer (default; set false to omit)
 
           # ---- Azure OpenAI ----
           # Mutually exclusive with the public OpenAI API used above - setting

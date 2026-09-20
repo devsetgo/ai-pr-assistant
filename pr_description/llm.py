@@ -16,6 +16,9 @@ Model-family quirks (GPT-5/o-series "reasoning" models reject a custom
 ``temperature`` and require ``max_completion_tokens`` instead of
 ``max_tokens``) are handled centrally in :func:`_completion_kwargs` so
 callers don't need to know about them.
+
+The prompts, the response schema and the result normalization here are
+provider-neutral and shared with :mod:`pr_description.llm_anthropic`.
 """
 
 from __future__ import annotations
@@ -37,7 +40,7 @@ OpenAIClient = openai.OpenAI | openai.AzureOpenAI
 #: Model name prefixes for "reasoning" models. These reject a custom
 #: `temperature` and require `max_completion_tokens` instead of `max_tokens`
 #: on the Chat Completions endpoint.
-REASONING_MODEL_PREFIXES: tuple[str, ...] = ("gpt-5", "o1", "o3", "o4")
+REASONING_MODEL_PREFIXES: tuple[str, ...] = ("gpt-5", "gpt-6", "o1", "o3", "o4")
 
 #: Prefix the model tends to open descriptions with; stripped for a tighter
 #: result since the PR body already makes clear it's describing this PR.
@@ -87,6 +90,11 @@ COMPLETION_PROMPT = """
 Write a pull request description focusing on the motivation behind the change and why it improves the project.
 Go straight to the point. The following changes took place: \n
 """
+
+#: System prompt for the classic (few-shot, plain-text) mode.
+CLASSIC_SYSTEM_PROMPT: str = (
+    "You are a helpful assistant who writes pull request descriptions"
+)
 
 #: JSON schema for the "structured" response mode, passed as
 #: ``response_format={"type": "json_schema", "json_schema": PR_CONTENT_SCHEMA}``.
@@ -232,10 +240,7 @@ def _classic_messages(
 ) -> list[ChatMessage]:
     """Build the few-shot message list for the original plain-text behavior."""
     return [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant who writes pull request descriptions",
-        },
+        {"role": "system", "content": CLASSIC_SYSTEM_PROMPT},
         {"role": "user", "content": sample_prompt},
         {"role": "assistant", "content": sample_response},
         {"role": "user", "content": "Title of the pull request: " + pull_request_title},
@@ -243,19 +248,9 @@ def _classic_messages(
     ]
 
 
-def _structured_messages(
-    pull_request_title: str,
-    completion_prompt: str,
-    label_taxonomy: Sequence[str],
-) -> list[ChatMessage]:
-    """Build the message list for the JSON-schema-constrained structured mode.
-
-    No few-shot example pair is included here (unlike :func:`_classic_messages`):
-    the JSON schema itself constrains the response shape, and a plain-text
-    few-shot example would actively mislead the model about the expected
-    format.
-    """
-    system_content = (
+def structured_system_prompt(label_taxonomy: Sequence[str]) -> str:
+    """Build the system prompt for the JSON-schema-constrained structured mode."""
+    return (
         "You are a helpful assistant who writes pull request descriptions and prepares "
         "metadata about them. Respond only with JSON matching the given schema.\n"
         "- description: start with a one-to-two sentence summary of the change and why "
@@ -280,8 +275,22 @@ def _structured_messages(
         "- breaking_change_notes: a short explanation when breaking_change is true, "
         "otherwise null."
     )
+
+
+def _structured_messages(
+    pull_request_title: str,
+    completion_prompt: str,
+    label_taxonomy: Sequence[str],
+) -> list[ChatMessage]:
+    """Build the message list for the JSON-schema-constrained structured mode.
+
+    No few-shot example pair is included here (unlike :func:`_classic_messages`):
+    the JSON schema itself constrains the response shape, and a plain-text
+    few-shot example would actively mislead the model about the expected
+    format.
+    """
     return [
-        {"role": "system", "content": system_content},
+        {"role": "system", "content": structured_system_prompt(label_taxonomy)},
         {"role": "user", "content": "Title of the pull request: " + pull_request_title},
         {"role": "user", "content": completion_prompt},
     ]
@@ -299,7 +308,7 @@ def _require_content(text: str | None) -> str:
     return text
 
 
-def _plain_result(text: str) -> PRContent:
+def plain_result(text: str) -> PRContent:
     """Wrap a plain-text completion in the common :class:`PRContent` shape."""
     return {
         "description": strip_redundant_prefix(text),
@@ -307,6 +316,25 @@ def _plain_result(text: str) -> PRContent:
         "labels": [],
         "breaking_change": False,
         "breaking_change_notes": None,
+    }
+
+
+def parse_structured_payload(
+    payload: dict[str, Any], label_taxonomy: Sequence[str]
+) -> PRContent:
+    """Normalize a decoded structured-mode JSON reply into :class:`PRContent`.
+
+    Labels outside ``label_taxonomy`` are dropped, since the model is only
+    asked (not forced) to stay within it.
+    """
+    return {
+        "description": strip_redundant_prefix(payload.get("description", "")),
+        "title": payload.get("title") or None,
+        "labels": [
+            label for label in (payload.get("labels") or []) if label in label_taxonomy
+        ],
+        "breaking_change": bool(payload.get("breaking_change")),
+        "breaking_change_notes": payload.get("breaking_change_notes") or None,
     }
 
 
@@ -376,17 +404,7 @@ def generate_pr_content(
             payload: dict[str, Any] = json.loads(
                 _require_content(response.choices[0].message.content)
             )
-            return {
-                "description": strip_redundant_prefix(payload.get("description", "")),
-                "title": payload.get("title") or None,
-                "labels": [
-                    label
-                    for label in (payload.get("labels") or [])
-                    if label in label_taxonomy
-                ],
-                "breaking_change": bool(payload.get("breaking_change")),
-                "breaking_change_notes": payload.get("breaking_change_notes") or None,
-            }
+            return parse_structured_payload(payload, label_taxonomy)
         except (openai.BadRequestError, json.JSONDecodeError):
             # BadRequestError: the API rejected structured output outright.
             # JSONDecodeError: it accepted it but the reply wasn't valid JSON -
@@ -404,4 +422,4 @@ def generate_pr_content(
         ),
         **kwargs,
     )
-    return _plain_result(_require_content(response.choices[0].message.content))
+    return plain_result(_require_content(response.choices[0].message.content))

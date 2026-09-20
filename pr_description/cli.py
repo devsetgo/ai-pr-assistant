@@ -17,10 +17,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from collections.abc import Callable
+from typing import Any
 
+import anthropic
 import openai
 
-from . import diff_filter, llm
+from . import diff_filter, llm, llm_anthropic
 from .github_api import GitHubApiError, GitHubClient
 
 #: Label applied when `detect_breaking_changes` finds one and `enable_labels`
@@ -28,10 +31,31 @@ from .github_api import GitHubApiError, GitHubClient
 #: this module rather than chosen by the model from the taxonomy.
 BREAKING_CHANGE_LABEL: str = "breaking-change"
 
+#: Values accepted by the `provider` input.
+PROVIDERS: tuple[str, ...] = ("openai", "anthropic")
+
+#: Provider names as shown in log messages.
+PROVIDER_LABELS: dict[str, str] = {"openai": "OpenAI", "anthropic": "Anthropic"}
+
+#: Default model per provider, used when the provider's model input is unset.
+DEFAULT_MODELS: dict[str, str] = {
+    "openai": "gpt-5-mini",
+    "anthropic": "claude-haiku-4-5-20251001",
+}
+
 #: Default value for the `label_taxonomy` input - the labels the model may
 #: choose from when `enable_labels` is set, absent an explicit override.
 DEFAULT_LABEL_TAXONOMY: str = (
     "bug,feature,enhancement,documentation,dependencies,refactor,test,chore"
+)
+
+#: Footer appended to the description when `attribution` is on. Added here,
+#: after generation, rather than requested in the prompt, so the model can't
+#: drop it, reword it, or invent a model name.
+ATTRIBUTION_TEMPLATE: str = (
+    "\n\n---\n<sub>Created using "
+    "[devsetgo/ai-pr-assistant](https://github.com/devsetgo/ai-pr-assistant) "
+    "with {model}</sub>"
 )
 
 
@@ -65,10 +89,41 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--github-token", type=str, required=True, help="The GitHub token"
     )
+    # Neither key is individually required: which one is needed depends on the
+    # `provider` input, so main() checks the one for the selected provider.
     parser.add_argument(
-        "--openai-api-key", type=str, required=True, help="The OpenAI API key"
+        "--openai-api-key", type=str, default="", help="The OpenAI API key"
+    )
+    parser.add_argument(
+        "--anthropic-api-key", type=str, default="", help="The Anthropic API key"
     )
     return parser.parse_args(argv)
+
+
+def _select_provider(args: argparse.Namespace) -> tuple[str, str, str] | None:
+    """Resolve the `provider` input into the provider, its API key and its model.
+
+    Args:
+        args: The parsed command-line arguments, carrying both API keys.
+
+    Returns:
+        A `(provider, api_key, model)` tuple, or `None` (after printing why)
+        if the provider is unknown or its API key was not supplied.
+    """
+    provider = os.environ.get("INPUT_PROVIDER", "openai").strip().lower()
+    if provider not in PROVIDERS:
+        print(f"Unknown provider '{provider}', expected one of: {', '.join(PROVIDERS)}")
+        return None
+    if provider == "anthropic":
+        api_key = args.anthropic_api_key
+        model = os.environ.get("INPUT_ANTHROPIC_MODEL") or DEFAULT_MODELS[provider]
+    else:
+        api_key = args.openai_api_key
+        model = os.environ.get("INPUT_OPENAI_MODEL") or DEFAULT_MODELS[provider]
+    if not api_key:
+        print(f"Provider '{provider}' requires the {provider}_api_key input to be set")
+        return None
+    return provider, api_key, model
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,8 +135,8 @@ def main(argv: list[str] | None = None) -> int:
 
     Returns:
         A process exit code: `0` for success or an intentional no-op (e.g.
-        an existing description, or a disallowed author), `1` if a GitHub or
-        OpenAI request failed.
+        an existing description, or a disallowed author), `1` if the provider
+        configuration is invalid or a GitHub or model request failed.
     """
     args = _parse_args(argv)
 
@@ -92,7 +147,11 @@ def main(argv: list[str] | None = None) -> int:
         if user.strip()
     ]
 
-    open_ai_model = os.environ.get("INPUT_OPENAI_MODEL", "gpt-5-mini")
+    selection = _select_provider(args)
+    if selection is None:
+        return 1
+    provider, api_key, model = selection
+
     max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "2000"))
     temperature = float(os.environ.get("INPUT_TEMPERATURE", "0.6"))
     sample_prompt = os.environ.get("INPUT_SAMPLE_PROMPT") or llm.SAMPLE_PROMPT
@@ -127,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     max_diff_tokens = int(os.environ.get("INPUT_MAX_DIFF_TOKENS", "6000"))
+    attribution = _bool_env(os.environ.get("INPUT_ATTRIBUTION", "true"))
 
     github = GitHubClient(
         args.github_api_url, args.github_repository, args.github_token
@@ -159,16 +219,23 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     completion_prompt = completion_prompt_template + diff_filter.build_diff_prompt(
-        pull_request_files, exclude_patterns, max_diff_tokens, open_ai_model
+        pull_request_files, exclude_patterns, max_diff_tokens, model
     )
 
-    client = llm.build_client(args.openai_api_key, azure_endpoint, azure_api_version)
+    client: Any  # OpenAI or Anthropic client; mypy would narrow it per branch
+    generate_pr_content: Callable[..., llm.PRContent]
+    if provider == "anthropic":
+        client = llm_anthropic.build_client(api_key)
+        generate_pr_content = llm_anthropic.generate_pr_content
+    else:
+        client = llm.build_client(api_key, azure_endpoint, azure_api_version)
+        generate_pr_content = llm.generate_pr_content
     structured = generate_title or enable_labels or detect_breaking_changes
 
     try:
-        content = llm.generate_pr_content(
+        content = generate_pr_content(
             client,
-            open_ai_model,
+            model,
             pull_request_title,
             completion_prompt,
             structured=structured,
@@ -178,8 +245,8 @@ def main(argv: list[str] | None = None) -> int:
             sample_response=sample_response,
             label_taxonomy=label_taxonomy,
         )
-    except openai.OpenAIError as error:
-        print(f"OpenAI request failed: {error}")
+    except (openai.OpenAIError, anthropic.AnthropicError) as error:
+        print(f"{PROVIDER_LABELS[provider]} request failed: {error}")
         return 1
 
     description = content["description"]
@@ -197,6 +264,9 @@ def main(argv: list[str] | None = None) -> int:
             or "This change may break existing consumers."
         )
         description = f"⚠️ **Potential breaking change:** {note}\n\n{description}"
+
+    if attribution:
+        description += ATTRIBUTION_TEMPLATE.format(model=model)
 
     print(f"Generated pull request description: '{description}'")
     try:

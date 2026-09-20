@@ -19,4 +19,5 @@ fi
   --pull-request-id "$pull_request_id" \
   --github-token "$INPUT_GITHUB_TOKEN" \
   --openai-api-key "$INPUT_OPENAI_API_KEY" \
+  --anthropic-api-key "$INPUT_ANTHROPIC_API_KEY"
 

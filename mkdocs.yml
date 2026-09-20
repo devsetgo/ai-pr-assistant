@@ -11,6 +11,7 @@ nav:
   - Home: index.md
   - Setup: SETUP.md
   - Configuration: CONFIGURATION.md
+  - Models: MODELS.md
   - Changelog: CHANGELOG.md
   - Troubleshooting: TROUBLESHOOTING.md
   - Migrating: MIGRATING.md
