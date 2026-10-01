@@ -1,4 +1,4 @@
 requests>=2.32,<3
-openai==3.16.2
+openai==3.19.2
 anthropic==1.7.0
 tiktoken==0.14.0
