@@ -9,5 +9,5 @@ genbadge[all]>=1.1.3,<2
 mypy==2.3.1
 # `make lock` regenerates requirements.lock, the hashed file the Docker image installs.
 pip-tools>=7.6.1,<8
-zensical==0.0.63
+zensical==0.0.66
 bumpcalver==2026.9.19.2
