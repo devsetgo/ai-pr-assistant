@@ -1,6 +1,7 @@
 -r requirements.txt
 pytest>=9.1.1,<10
 pytest-cov>=7.1.0,<8
+pyyaml>=6.0.3,<7
 # Keep in sync with `rev` in .pre-commit-config.yaml (both must run the same ruff).
 ruff==0.16.8
 pre-commit>=4.6.2,<5

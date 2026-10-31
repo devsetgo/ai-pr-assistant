@@ -26,7 +26,8 @@ jobs:
       # action.yml names the last released image, which wouldn't include this
       # PR's changes, so build from this checkout instead.
       - name: Run this pull request's code
-        run: sed -i "s|^  image: .*|  image: 'Dockerfile'|" action.yml
+        run: |
+          sed -i "s|^  image: .*|  image: 'Dockerfile'|" action.yml
 
       # This is the showcase usage of the action - every input it accepts
       # (see action.yml) is listed below, active or not. Anything this repo

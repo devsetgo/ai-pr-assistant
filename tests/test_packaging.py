@@ -10,6 +10,8 @@ image-build time.
 import re
 from pathlib import Path
 
+import pytest
+import yaml
 from packaging.requirements import Requirement
 from packaging.version import Version
 
@@ -89,3 +91,13 @@ def test_dogfood_workflow_builds_this_checkout_instead_of_the_release():
     workflow = (REPO_ROOT / ".github/workflows/ai_pr_assistant.yml").read_text()
     assert "image: 'Dockerfile'|\" action.yml" in workflow
     assert workflow.index("action.yml\n") < workflow.index("uses: ./")
+
+
+@pytest.mark.parametrize(
+    "workflow",
+    sorted((REPO_ROOT / ".github/workflows").glob("*.y*ml")),
+    ids=lambda path: path.name,
+)
+def test_workflow_is_valid_yaml(workflow):
+    """GitHub rejects an invalid workflow without running it or failing the PR."""
+    assert "jobs" in yaml.safe_load(workflow.read_text())
