@@ -580,14 +580,22 @@ def generate_pr_content(
                 _require_content(response.choices[0].message.content)
             )
             return parse_structured_payload(payload, label_taxonomy)
-        except (openai.BadRequestError, json.JSONDecodeError):
-            # BadRequestError: the API rejected structured output outright.
-            # JSONDecodeError: it accepted it but the reply wasn't valid JSON -
-            # typically empty or cut off because a reasoning model spent its
-            # whole max_tokens budget before finishing the object.
+        except openai.BadRequestError as error:
+            # The API rejected structured output outright.
             logger.warning(
-                "Structured PR content request was rejected or returned invalid "
-                "JSON, falling back to a plain-text description"
+                "Structured PR content request was rejected, falling back to a "
+                "plain-text description: %s",
+                error,
+            )
+        except json.JSONDecodeError:
+            # Accepted, but the reply wasn't valid JSON - typically empty or cut
+            # off because a reasoning model spent its whole max_tokens budget
+            # before finishing the object (finish_reason "length").
+            logger.warning(
+                "Structured PR content reply was not valid JSON (finish_reason=%s, "
+                "max_tokens=%s), falling back to a plain-text description",
+                response.choices[0].finish_reason,
+                max_tokens,
             )
 
     response = client.chat.completions.create(

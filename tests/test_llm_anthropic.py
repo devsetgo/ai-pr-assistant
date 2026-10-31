@@ -203,3 +203,17 @@ def test_review_request_sends_review_schema_and_existing_content():
     assert kwargs["output_config"]["format"]["schema"] is llm.PR_REVIEW_SCHEMA["schema"]
     assert "Human text" in kwargs["messages"][-1]["content"]
     assert "description_action" in kwargs["system"]
+
+
+def test_truncated_reply_logs_why_it_fell_back(caplog):
+    client = MagicMock()
+    client.messages.create.side_effect = [
+        _response(_text("{cut off"), stop_reason="max_tokens"),
+        _response(_text("Plain")),
+    ]
+
+    llm_anthropic.generate_pr_content(
+        client, "claude-haiku-4-5-20251001", "Fix", "diff", structured=True
+    )
+
+    assert "stop_reason=max_tokens" in caplog.text

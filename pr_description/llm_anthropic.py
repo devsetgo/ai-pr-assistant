@@ -176,13 +176,21 @@ def generate_pr_content(
             )
             payload: dict[str, Any] = json.loads(_response_text(response))
             return llm.parse_structured_payload(payload, label_taxonomy)
-        except (anthropic.BadRequestError, json.JSONDecodeError):
-            # BadRequestError: the API rejected structured output outright.
-            # JSONDecodeError: it accepted it but the reply wasn't valid JSON -
-            # empty or cut off at max_tokens.
+        except anthropic.BadRequestError as error:
+            # The API rejected structured output outright.
             logger.warning(
-                "Structured PR content request was rejected or returned invalid "
-                "JSON, falling back to a plain-text description"
+                "Structured PR content request was rejected, falling back to a "
+                "plain-text description: %s",
+                error,
+            )
+        except json.JSONDecodeError:
+            # Accepted, but the reply wasn't valid JSON - empty or cut off at
+            # max_tokens (stop_reason "max_tokens").
+            logger.warning(
+                "Structured PR content reply was not valid JSON (stop_reason=%s, "
+                "max_tokens=%s), falling back to a plain-text description",
+                response.stop_reason,
+                max_tokens,
             )
 
     response = client.messages.create(

@@ -334,3 +334,17 @@ def test_non_review_request_keeps_the_original_schema():
     kwargs = client.chat.completions.create.call_args.kwargs
     assert kwargs["response_format"]["json_schema"] is llm.PR_CONTENT_SCHEMA
     assert len(kwargs["messages"]) == 3
+
+
+def test_truncated_reply_logs_why_it_fell_back(caplog):
+    client = MagicMock()
+    truncated = _mock_response("{cut off")
+    truncated.choices[0].finish_reason = "length"
+    client.chat.completions.create.side_effect = [truncated, _mock_response("Plain")]
+
+    llm.generate_pr_content(
+        client, "gpt-5-mini", "Fix", "diff", structured=True, max_tokens=123
+    )
+
+    assert "finish_reason=length" in caplog.text
+    assert "max_tokens=123" in caplog.text
