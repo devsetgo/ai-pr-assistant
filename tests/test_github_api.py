@@ -104,7 +104,7 @@ def test_build_session_mounts_https_retry_adapter():
     retries = session.adapters["https://"].max_retries
     assert retries.total == 3
     assert retries.backoff_factor == 1
-    assert set(retries.allowed_methods) == {"GET", "POST", "PATCH"}
+    assert set(retries.allowed_methods) == {"GET", "POST", "PATCH", "DELETE"}
 
 
 def test_get_pull_request_files_raises_on_error_page(client):
@@ -181,3 +181,26 @@ def test_error_body_is_truncated(client):
         client.get_pull_request(42)
 
     assert len(str(excinfo.value)) < 700
+
+
+def test_remove_label_url_encodes_the_name(client):
+    client.session.delete.return_value = _response()
+
+    client.remove_label(42, "good first/issue")
+
+    client.session.delete.assert_called_once_with(
+        "https://api.github.com/repos/acme/widgets/issues/42/labels/good%20first%2Fissue"
+    )
+
+
+def test_remove_label_tolerates_an_already_removed_label(client):
+    client.session.delete.return_value = _response(status_code=404)
+
+    client.remove_label(42, "bug")
+
+
+def test_remove_label_raises_on_other_failures(client):
+    client.session.delete.return_value = _response(status_code=403, text="forbidden")
+
+    with pytest.raises(GitHubApiError, match="forbidden"):
+        client.remove_label(42, "bug")

@@ -417,3 +417,400 @@ def test_returns_error_when_anthropic_request_fails(
 
     assert "Anthropic request failed: declined" in capsys.readouterr().out
     github_client.update_description.assert_not_called()
+
+
+DETAILED = "A detailed description written by a person, with real reasoning."
+
+
+def _review_result(mock, **overrides):
+    mock.return_value.update(
+        {"description_action": "keep", "title_action": "keep", **overrides}
+    )
+
+
+@pytest.fixture
+def smart(monkeypatch, github_client, generate_pr_content):
+    """Every overwrite mode set to smart, on a PR that already has content."""
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "false")
+    monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")
+    monkeypatch.setenv("INPUT_ENABLE_LABELS", "true")
+    monkeypatch.setenv("INPUT_OVERWRITE_DESCRIPTION", "smart")
+    monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "smart")
+    monkeypatch.setenv("INPUT_OVERWRITE_LABELS", "smart")
+    github_client.get_pull_request.return_value.update(
+        {
+            "body": DETAILED,
+            "title": "Add dark mode toggle",
+            "head": {"ref": "feat/dark-mode"},
+            "labels": [{"name": "feature"}, {"name": "needs-qa"}],
+        }
+    )
+    _review_result(generate_pr_content)
+    return github_client
+
+
+@pytest.mark.parametrize("input_name", ["DESCRIPTION", "TITLE", "LABELS"])
+def test_unknown_overwrite_mode_fails(monkeypatch, capsys, github_client, input_name):
+    monkeypatch.setenv(f"INPUT_OVERWRITE_{input_name}", "maybe")
+
+    assert cli.main(BASE_ARGV) == 1
+
+    assert "maybe" in capsys.readouterr().out
+    github_client.get_pull_request.assert_not_called()
+
+
+def test_unknown_description_style_fails(monkeypatch, capsys, github_client):
+    monkeypatch.setenv("INPUT_DESCRIPTION_STYLE", "fancy")
+
+    assert cli.main(BASE_ARGV) == 1
+
+    assert "fancy" in capsys.readouterr().out
+
+
+def test_description_style_reaches_the_model(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_DESCRIPTION_STYLE", "plain")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert generate_pr_content.call_args.kwargs["description_style"] == "plain"
+
+
+@pytest.mark.parametrize("value", ["true", "always"])
+def test_always_replaces_the_description(
+    monkeypatch, github_client, generate_pr_content, value
+):
+    monkeypatch.setenv("INPUT_OVERWRITE_DESCRIPTION", value)
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "false")
+    github_client.get_pull_request.return_value["body"] = DETAILED
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert generate_pr_content.call_args.kwargs["review"] is None
+    github_client.update_description.assert_called_once_with(42, "Adds a feature")
+
+
+def test_frozen_description_does_not_block_a_smart_title(
+    monkeypatch, smart, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_OVERWRITE_DESCRIPTION", "never")
+    _review_result(generate_pr_content, title="Enhancement: Add Dark Mode")
+    generate_pr_content.return_value["title_action"] = "replace"
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_description.assert_not_called()
+    smart.update_title.assert_called_once_with(42, "Enhancement: Add Dark Mode")
+
+
+@pytest.mark.parametrize("body", [None, "", "  \n "])
+def test_smart_fills_a_blank_description_without_reviewing_it(
+    smart, generate_pr_content, body
+):
+    smart.get_pull_request.return_value["body"] = body
+    generate_pr_content.return_value["description_action"] = "keep"
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert generate_pr_content.call_args.kwargs["review"].description is None
+    smart.update_description.assert_called_once_with(42, "Adds a feature")
+
+
+def test_smart_keep_leaves_the_description_untouched(smart, generate_pr_content):
+    assert cli.main(BASE_ARGV) == 0
+
+    assert generate_pr_content.call_args.kwargs["review"].description == DETAILED
+    smart.update_description.assert_not_called()
+
+
+def test_smart_replace_writes_the_new_description(smart, generate_pr_content):
+    _review_result(generate_pr_content, description_action="replace")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_description.assert_called_once_with(42, "Adds a feature")
+
+
+def test_smart_replace_with_no_text_fails_rather_than_blanking(
+    smart, generate_pr_content
+):
+    _review_result(generate_pr_content, description_action="replace", description=" ")
+
+    assert cli.main(BASE_ARGV) == 1
+
+    smart.update_description.assert_not_called()
+
+
+def test_smart_extend_appends_to_the_text_verbatim(smart, generate_pr_content):
+    _review_result(
+        generate_pr_content, description_action="extend", description="\nAlso X.\n"
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_description.assert_called_once_with(42, f"{DETAILED}\n\nAlso X.")
+
+
+def test_smart_extend_with_no_text_keeps(smart, generate_pr_content):
+    _review_result(generate_pr_content, description_action="extend", description="")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_description.assert_not_called()
+
+
+def test_smart_extend_does_not_stack_the_note_or_footer(
+    monkeypatch, smart, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "true")
+    footer = cli.existing_content.ATTRIBUTION_TEMPLATE.format(model="gpt-5-mini")
+    note = cli.existing_content.format_breaking_note("Removed /v1")
+    smart.get_pull_request.return_value["body"] = f"{note}\n\n{DETAILED}{footer}"
+    _review_result(
+        generate_pr_content, description_action="extend", description="Also X."
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert generate_pr_content.call_args.kwargs["review"].description == DETAILED
+    smart.update_description.assert_called_once_with(
+        42, f"{note}\n\n{DETAILED}\n\nAlso X.{footer}"
+    )
+
+
+def test_smart_keep_still_surfaces_a_new_breaking_change(
+    monkeypatch, smart, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_DETECT_BREAKING_CHANGES", "true")
+    _review_result(
+        generate_pr_content, breaking_change=True, breaking_change_notes="Removed /v1"
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    written = smart.update_description.call_args.args[1]
+    assert written.startswith("> [!CAUTION]")
+    assert written.endswith(DETAILED)
+    assert "breaking-change" in smart.add_labels.call_args.args[1]
+
+
+def test_smart_keep_does_not_repeat_a_breaking_note(
+    monkeypatch, smart, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_DETECT_BREAKING_CHANGES", "true")
+    note = cli.existing_content.format_breaking_note("Removed /v1")
+    smart.get_pull_request.return_value["body"] = f"{note}\n\n{DETAILED}"
+    _review_result(
+        generate_pr_content, breaking_change=True, breaking_change_notes="Reworded"
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_description.assert_not_called()
+
+
+def test_smart_fallback_protects_everything(capsys, smart, generate_pr_content):
+    """A plain-text fallback has no verdicts, so existing content must survive."""
+    generate_pr_content.return_value.update(
+        cli.llm.plain_result("A plain text description from the fallback")
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert "no verdict" in capsys.readouterr().out
+    smart.update_description.assert_not_called()
+    smart.update_title.assert_not_called()
+    smart.add_labels.assert_not_called()
+    smart.remove_label.assert_not_called()
+
+
+@pytest.mark.parametrize("title", ["dev", "feat/dark mode", "  "])
+def test_smart_always_replaces_a_placeholder_title(smart, generate_pr_content, title):
+    smart.get_pull_request.return_value["title"] = title
+    _review_result(generate_pr_content, title="Enhancement: Add Dark Mode")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert generate_pr_content.call_args.kwargs["review"].title is None
+    smart.update_title.assert_called_once_with(42, "Enhancement: Add Dark Mode")
+
+
+def test_smart_title_follows_the_verdict(smart, generate_pr_content):
+    _review_result(generate_pr_content, title="Other", title_action="keep")
+    assert cli.main(BASE_ARGV) == 0
+    smart.update_title.assert_not_called()
+
+    _review_result(generate_pr_content, title="Other", title_action="replace")
+    assert cli.main(BASE_ARGV) == 0
+    smart.update_title.assert_called_once_with(42, "Other")
+
+
+def test_identical_title_is_not_rewritten(monkeypatch, smart, generate_pr_content):
+    monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "always")
+    _review_result(generate_pr_content, title="Add dark mode toggle")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_title.assert_not_called()
+
+
+def test_labels_are_diffed_and_foreign_labels_survive(smart, generate_pr_content):
+    smart.get_pull_request.return_value["labels"] = [
+        {"name": "feature"},
+        {"name": "chore"},
+        {"name": "needs-qa"},
+        {"name": "breaking-change"},
+    ]
+    _review_result(generate_pr_content, labels=["feature", "bug"])
+
+    assert cli.main(BASE_ARGV) == 0
+
+    assert sorted(generate_pr_content.call_args.kwargs["review"].labels) == [
+        "breaking-change",
+        "chore",
+        "feature",
+        "needs-qa",
+    ]
+    smart.add_labels.assert_called_once_with(42, ["bug"])
+    smart.remove_label.assert_called_once_with(42, "chore")
+
+
+def test_labels_unchanged_makes_no_write_calls(smart, generate_pr_content):
+    _review_result(generate_pr_content, labels=["feature"])
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.ensure_labels_exist.assert_not_called()
+    smart.add_labels.assert_not_called()
+    smart.remove_label.assert_not_called()
+
+
+def test_never_leaves_labelled_prs_alone(monkeypatch, smart, generate_pr_content):
+    monkeypatch.setenv("INPUT_OVERWRITE_LABELS", "never")
+    _review_result(generate_pr_content, labels=["bug"])
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.add_labels.assert_not_called()
+    smart.remove_label.assert_not_called()
+
+
+def test_never_still_labels_an_unlabelled_pr(monkeypatch, smart, generate_pr_content):
+    monkeypatch.setenv("INPUT_OVERWRITE_DESCRIPTION", "never")
+    monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "never")
+    monkeypatch.setenv("INPUT_OVERWRITE_LABELS", "never")
+    smart.get_pull_request.return_value["labels"] = []
+    _review_result(generate_pr_content, labels=["bug"])
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.add_labels.assert_called_once_with(42, ["bug"])
+    smart.update_description.assert_not_called()
+
+
+def test_everything_frozen_skips_the_model(monkeypatch, smart, generate_pr_content):
+    for name in ("DESCRIPTION", "TITLE", "LABELS"):
+        monkeypatch.setenv(f"INPUT_OVERWRITE_{name}", "never")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    generate_pr_content.assert_not_called()
+
+
+def test_returns_error_when_label_removal_fails(smart, generate_pr_content):
+    _review_result(generate_pr_content, labels=["bug"])
+    smart.remove_label.side_effect = cli.GitHubApiError("boom")
+
+    assert cli.main(BASE_ARGV) == 1
+
+
+@pytest.fixture
+def breaking(monkeypatch, github_client, generate_pr_content):
+    """Detection on, everything else frozen, on a PR that already has content."""
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "false")
+    monkeypatch.setenv("INPUT_DETECT_BREAKING_CHANGES", "true")
+    github_client.get_pull_request.return_value.update(
+        {"body": DETAILED, "labels": [{"name": "needs-qa"}]}
+    )
+    generate_pr_content.return_value.update(
+        {"breaking_change": True, "breaking_change_notes": "Removed /v1"}
+    )
+    return github_client
+
+
+def test_breaking_change_is_surfaced_with_every_mode_frozen_and_labels_off(breaking):
+    assert cli.main(BASE_ARGV) == 0
+
+    written = breaking.update_description.call_args.args[1]
+    assert written.startswith("> [!CAUTION]")
+    assert "Removed /v1" in written
+    assert written.endswith(DETAILED)
+    breaking.ensure_labels_exist.assert_called_once_with(["breaking-change"])
+    breaking.add_labels.assert_called_once_with(42, ["breaking-change"])
+    breaking.remove_label.assert_not_called()
+
+
+def test_never_labels_still_get_only_the_breaking_label(
+    monkeypatch, breaking, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_ENABLE_LABELS", "true")
+    generate_pr_content.return_value["labels"] = ["bug"]
+
+    assert cli.main(BASE_ARGV) == 0
+
+    breaking.add_labels.assert_called_once_with(42, ["breaking-change"])
+
+
+def test_breaking_change_already_surfaced_writes_nothing(breaking):
+    note = cli.existing_content.format_breaking_note("Removed /v1")
+    breaking.get_pull_request.return_value.update(
+        {
+            "body": f"{note}\n\n{DETAILED}",
+            "labels": [{"name": "breaking-change"}],
+        }
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    breaking.update_description.assert_not_called()
+    breaking.add_labels.assert_not_called()
+
+
+def test_no_breaking_change_with_detection_on_changes_nothing(
+    breaking, generate_pr_content
+):
+    generate_pr_content.return_value["breaking_change"] = False
+
+    assert cli.main(BASE_ARGV) == 0
+
+    breaking.update_description.assert_not_called()
+    breaking.add_labels.assert_not_called()
+
+
+def test_regenerating_keeps_an_earlier_note_when_nothing_is_detected(
+    monkeypatch, breaking, generate_pr_content
+):
+    """A plain-text fallback reports no breaking change, so must not erase one."""
+    monkeypatch.setenv("INPUT_OVERWRITE_DESCRIPTION", "always")
+    note = cli.existing_content.format_breaking_note("Removed /v1")
+    breaking.get_pull_request.return_value["body"] = f"{note}\n\n{DETAILED}"
+    generate_pr_content.return_value["breaking_change"] = False
+
+    assert cli.main(BASE_ARGV) == 0
+
+    breaking.update_description.assert_called_once_with(42, f"{note}\n\nAdds a feature")
+
+
+def test_regenerating_with_detection_off_drops_an_old_note(
+    monkeypatch, breaking, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_DETECT_BREAKING_CHANGES", "false")
+    monkeypatch.setenv("INPUT_OVERWRITE_DESCRIPTION", "always")
+    note = cli.existing_content.format_breaking_note("Removed /v1")
+    breaking.get_pull_request.return_value["body"] = f"{note}\n\n{DETAILED}"
+
+    assert cli.main(BASE_ARGV) == 0
+
+    breaking.update_description.assert_called_once_with(42, "Adds a feature")
+    breaking.add_labels.assert_not_called()

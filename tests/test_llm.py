@@ -116,6 +116,8 @@ def test_generate_pr_content_classic_path():
         "labels": [],
         "breaking_change": False,
         "breaking_change_notes": None,
+        "description_action": None,
+        "title_action": None,
     }
     kwargs = client.chat.completions.create.call_args.kwargs
     assert "temperature" in kwargs
@@ -243,3 +245,92 @@ def test_build_client_uses_azure_client_when_endpoint_set(monkeypatch):
 def test_require_content_raises_on_none():
     with pytest.raises(ValueError):
         llm._require_content(None)
+
+
+def test_review_request_uses_review_schema_and_presents_existing_content():
+    client = MagicMock()
+    client.chat.completions.create.return_value = _mock_response(
+        json.dumps(
+            {
+                "description": "",
+                "title": None,
+                "labels": ["bug"],
+                "breaking_change": False,
+                "breaking_change_notes": None,
+                "description_action": "keep",
+                "title_action": "keep",
+            }
+        )
+    )
+    review = llm.ReviewRequest(description="Human text", title="Fix", labels=[])
+
+    result = llm.generate_pr_content(
+        client,
+        "gpt-5-mini",
+        "Fix",
+        "diff",
+        structured=True,
+        label_taxonomy=["bug"],
+        review=review,
+    )
+
+    assert result["description_action"] == "keep"
+    assert result["title_action"] == "keep"
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert kwargs["response_format"]["json_schema"] is llm.PR_REVIEW_SCHEMA
+    last_message = kwargs["messages"][-1]["content"]
+    assert "Human text" in last_message
+    assert "Labels: (none)" in last_message
+    assert "description_action" in kwargs["messages"][0]["content"]
+
+
+def test_review_fallback_carries_no_verdict():
+    client = MagicMock()
+    client.chat.completions.create.side_effect = [
+        _mock_response("{truncated"),
+        _mock_response("Plain text"),
+    ]
+
+    result = llm.generate_pr_content(
+        client,
+        "gpt-5-mini",
+        "Fix",
+        "diff",
+        structured=True,
+        review=llm.ReviewRequest(description="Human text"),
+    )
+
+    assert result["description_action"] is None
+    assert result["title_action"] is None
+
+
+def test_review_rules_cover_only_the_reviewed_fields():
+    prompt = llm.structured_system_prompt(
+        ["bug"], review=llm.ReviewRequest(title="Fix")
+    )
+
+    assert "title_action: 'replace'" in prompt
+    assert "description_action: 'replace'" not in prompt
+    assert "- labels: the complete set" not in prompt
+
+
+def test_description_style_selects_the_formatting_rules():
+    rich = llm.structured_system_prompt(["bug"])
+    plain = llm.structured_system_prompt(["bug"], "plain")
+
+    assert "> [!IMPORTANT]" in rich
+    assert "> [!IMPORTANT]" not in plain
+    assert "bold subheadings" in plain
+
+
+def test_non_review_request_keeps_the_original_schema():
+    client = MagicMock()
+    client.chat.completions.create.return_value = _mock_response(
+        json.dumps({"description": "x"})
+    )
+
+    llm.generate_pr_content(client, "gpt-5-mini", "Fix", "diff", structured=True)
+
+    kwargs = client.chat.completions.create.call_args.kwargs
+    assert kwargs["response_format"]["json_schema"] is llm.PR_CONTENT_SCHEMA
+    assert len(kwargs["messages"]) == 3

@@ -26,6 +26,11 @@ path = "sonar-project.properties"
 file_type = "properties"
 variable = "sonar.projectVersion"
 
+[[tool.bumpcalver.file]]
+path = "action.yml"
+file_type = "regex"
+pattern = "^\\s*image: 'docker://ghcr\\.io/devsetgo/ai-pr-assistant:([^']+)'"
+
 [tool.bumpcalver.changelog]
 enabled = true
 path = "CHANGELOG.md"

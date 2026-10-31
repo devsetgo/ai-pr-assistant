@@ -54,6 +54,8 @@ def test_classic_path_returns_plain_description():
         "labels": [],
         "breaking_change": False,
         "breaking_change_notes": None,
+        "description_action": None,
+        "title_action": None,
     }
     kwargs = client.messages.create.call_args.kwargs
     assert kwargs["model"] == "claude-haiku-4-5"
@@ -179,3 +181,25 @@ def test_refusal_raises_instead_of_falling_back(structured):
 def test_refusal_is_an_anthropic_error():
     """cli.py catches anthropic.AnthropicError, so a refusal must be one."""
     assert issubclass(llm_anthropic.AnthropicRefusalError, anthropic.AnthropicError)
+
+
+def test_review_request_sends_review_schema_and_existing_content():
+    client = MagicMock()
+    client.messages.create.return_value = _response(
+        _text(json.dumps({"description": "", "description_action": "keep"}))
+    )
+
+    result = llm_anthropic.generate_pr_content(
+        client,
+        "claude-haiku-4-5-20251001",
+        "Fix",
+        "diff",
+        structured=True,
+        review=llm.ReviewRequest(description="Human text"),
+    )
+
+    assert result["description_action"] == "keep"
+    kwargs = client.messages.create.call_args.kwargs
+    assert kwargs["output_config"]["format"]["schema"] is llm.PR_REVIEW_SCHEMA["schema"]
+    assert "Human text" in kwargs["messages"][-1]["content"]
+    assert "description_action" in kwargs["system"]

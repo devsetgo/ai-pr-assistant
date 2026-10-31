@@ -3,8 +3,9 @@
 Reads the pull request via the GitHub API, builds a token-bounded diff
 prompt, asks the model for content (plain description, or the richer
 structured mode - see :mod:`pr_description.llm`), and writes the result
-back: description always, title/labels only when their opt-in inputs are
-enabled.
+back. Each of description, title and labels has an always/never/smart overwrite
+mode (see :mod:`pr_description.existing_content`) deciding what happens to
+content the pull request already has.
 
 Configuration mirrors the GitHub Action's `action.yml` inputs: required
 values arrive as CLI flags (set by `entrypoint.sh`), everything else is read
@@ -23,12 +24,13 @@ from typing import Any
 import anthropic
 import openai
 
-from . import diff_filter, llm, llm_anthropic
+from . import diff_filter, existing_content, llm, llm_anthropic
+from .existing_content import ALWAYS, NEVER, SMART, ExistingDescription
 from .github_api import GitHubApiError, GitHubClient
 
-#: Label applied when `detect_breaking_changes` finds one and `enable_labels`
-#: is on. Not part of `DEFAULT_LABEL_TAXONOMY` since it's applied directly by
-#: this module rather than chosen by the model from the taxonomy.
+#: Label applied when `detect_breaking_changes` finds one. Not part of
+#: `DEFAULT_LABEL_TAXONOMY` since it's applied directly by this module rather
+#: than chosen by the model from the taxonomy.
 BREAKING_CHANGE_LABEL: str = "breaking-change"
 
 #: Values accepted by the `provider` input.
@@ -47,15 +49,6 @@ DEFAULT_MODELS: dict[str, str] = {
 #: choose from when `enable_labels` is set, absent an explicit override.
 DEFAULT_LABEL_TAXONOMY: str = (
     "bug,feature,enhancement,documentation,dependencies,refactor,test,chore"
-)
-
-#: Footer appended to the description when `attribution` is on. Added here,
-#: after generation, rather than requested in the prompt, so the model can't
-#: drop it, reword it, or invent a model name.
-ATTRIBUTION_TEMPLATE: str = (
-    "\n\n---\n<sub>Created using "
-    "[devsetgo/ai-pr-assistant](https://github.com/devsetgo/ai-pr-assistant) "
-    "with {model}</sub>"
 )
 
 
@@ -126,6 +119,112 @@ def _select_provider(args: argparse.Namespace) -> tuple[str, str, str] | None:
     return provider, api_key, model
 
 
+def _overwrite_modes() -> tuple[str, str, str] | None:
+    """Read the description, title and labels overwrite modes.
+
+    Returns:
+        The three modes, or `None` (after printing why) if any is unrecognized.
+    """
+    modes: list[str] = []
+    for input_name in (
+        "INPUT_OVERWRITE_DESCRIPTION",
+        "INPUT_OVERWRITE_TITLE",
+        "INPUT_OVERWRITE_LABELS",
+    ):
+        value = os.environ.get(input_name, NEVER)
+        mode = existing_content.parse_overwrite_mode(value)
+        if mode is None:
+            print(
+                f"Unknown {input_name} value '{value}', expected {ALWAYS}, {NEVER} or {SMART}"
+            )
+            return None
+        modes.append(mode)
+    return modes[0], modes[1], modes[2]
+
+
+def _resolve_description(
+    existing: ExistingDescription,
+    mode: str,
+    content: llm.PRContent,
+    breaking_note: str,
+    footer: str,
+) -> str | None:
+    """Work out the description to write.
+
+    Args:
+        existing: The pull request's current description.
+        mode: The description's overwrite mode.
+        content: What the model returned.
+        breaking_note: The note the description must carry, or `""`. Written
+            whatever `mode` is, since a breaking change must always be visible.
+        footer: The rendered attribution footer, or `""`.
+
+    Returns:
+        The new description, or `None` to leave the current one as it is.
+    """
+    generated = content["description"]
+    if not existing.text or mode == ALWAYS:
+        return existing_content.compose_description(generated, breaking_note, footer)
+
+    action = content["description_action"] if mode == SMART else "keep"
+    if action == "replace":
+        return existing_content.compose_description(generated, breaking_note, footer)
+    if action == "extend" and generated.strip():
+        return existing_content.compose_description(
+            f"{existing.text}\n\n{generated.strip()}",
+            breaking_note or existing.note,
+            footer,
+        )
+    # Keep. A breaking change newly found is still worth surfacing, but nothing
+    # else about the text changes, the footer included.
+    if action is None:
+        print("The model gave no verdict on the description, leaving it unchanged")
+    if breaking_note and not existing.note:
+        return f"{breaking_note}\n\n{existing.raw}"
+    return None
+
+
+def _needs_generated_description(
+    existing: ExistingDescription, mode: str, content: llm.PRContent
+) -> bool:
+    """Whether the model's description text is about to replace the current one."""
+    if not existing.text or mode == ALWAYS:
+        return True
+    return mode == SMART and content["description_action"] == "replace"
+
+
+def _apply_labels(
+    github: GitHubClient,
+    pull_request_id: int,
+    mode: str,
+    chosen: set[str],
+    required: set[str],
+    current: set[str],
+    label_taxonomy: list[str],
+) -> None:
+    """Bring the pull request's labels in line with those the model chose.
+
+    `required` labels are added whatever `mode` is, unlike `chosen` ones.
+    Only taxonomy labels are ever removed, so labels a team manages by hand or
+    with other tools survive. `breaking-change` is never removed either: losing
+    a warning to one model's judgment is worse than a stale label. An empty
+    choice changes nothing, since a plain-text fallback looks exactly like one.
+
+    Raises:
+        GitHubApiError: If a GitHub request fails.
+    """
+    frozen = not chosen or (mode == NEVER and bool(current))
+    to_add = sorted((required | (set() if frozen else chosen)) - current)
+    if to_add:
+        github.ensure_labels_exist(to_add)
+        github.add_labels(pull_request_id, to_add)
+    if frozen:
+        return
+    removable = set(label_taxonomy) - {BREAKING_CHANGE_LABEL}
+    for label in sorted((current & removable) - chosen):
+        github.remove_label(pull_request_id, label)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the autofill flow end-to-end.
 
@@ -161,14 +260,23 @@ def main(argv: list[str] | None = None) -> int:
     completion_prompt_template = (
         os.environ.get("INPUT_COMPLETION_PROMPT") or llm.COMPLETION_PROMPT
     )
-    overwrite_description = _bool_env(
-        os.environ.get("INPUT_OVERWRITE_DESCRIPTION", "false")
+    modes = _overwrite_modes()
+    if modes is None:
+        return 1
+    description_mode, title_mode, labels_mode = modes
+    description_style = (
+        os.environ.get("INPUT_DESCRIPTION_STYLE", "rich").strip().lower()
     )
+    if description_style not in llm.DESCRIPTION_STYLES:
+        print(
+            f"Unknown description_style '{description_style}', expected one of: "
+            f"{', '.join(llm.DESCRIPTION_STYLES)}"
+        )
+        return 1
     azure_endpoint = os.environ.get("INPUT_AZURE_ENDPOINT", "")
     azure_api_version = os.environ.get("INPUT_AZURE_OPENAI_API_VERSION", "")
 
     generate_title = _bool_env(os.environ.get("INPUT_GENERATE_TITLE", "false"))
-    overwrite_title = _bool_env(os.environ.get("INPUT_OVERWRITE_TITLE", "false"))
     enable_labels = _bool_env(os.environ.get("INPUT_ENABLE_LABELS", "false"))
     detect_breaking_changes = _bool_env(
         os.environ.get("INPUT_DETECT_BREAKING_CHANGES", "false")
@@ -198,8 +306,23 @@ def main(argv: list[str] | None = None) -> int:
         print(str(error))
         return 1
 
-    if pull_request_data["body"] and not overwrite_description:
-        print("Pull request already has a description, skipping")
+    existing = existing_content.split_description(pull_request_data["body"])
+    current_labels: set[str] = {
+        label["name"] for label in pull_request_data.get("labels") or []
+    }
+    description_frozen = bool(existing.text) and description_mode == NEVER
+    title_frozen = not generate_title or title_mode == NEVER
+    labels_frozen = not enable_labels or (labels_mode == NEVER and bool(current_labels))
+    # Detection has to run even then: breaking changes must always be surfaced.
+    if (
+        description_frozen
+        and title_frozen
+        and labels_frozen
+        and not detect_breaking_changes
+    ):
+        print(
+            "Pull request already has its content and nothing may overwrite it, skipping"
+        )
         return 0
 
     if allowed_users:
@@ -210,7 +333,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
 
-    pull_request_title: str = pull_request_data["title"]
+    pull_request_title: str = pull_request_data["title"] or ""
+    review_title = (
+        generate_title
+        and title_mode == SMART
+        and not existing_content.is_placeholder_title(
+            pull_request_title, pull_request_data.get("head", {}).get("ref", "")
+        )
+    )
+    review_description = bool(existing.text) and description_mode == SMART
+    review_labels = enable_labels and labels_mode == SMART and bool(current_labels)
+    review = (
+        llm.ReviewRequest(
+            description=existing.text if review_description else None,
+            title=pull_request_title if review_title else None,
+            labels=sorted(current_labels) if review_labels else None,
+        )
+        if review_description or review_title or review_labels
+        else None
+    )
 
     try:
         pull_request_files = github.get_pull_request_files(args.pull_request_id)
@@ -234,7 +375,9 @@ def main(argv: list[str] | None = None) -> int:
         client = llm.build_client(api_key, azure_endpoint, azure_api_version)
         generate_pr_content = llm.generate_pr_content
         sampling["temperature"] = temperature
-    structured = generate_title or enable_labels or detect_breaking_changes
+    structured = (
+        generate_title or enable_labels or detect_breaking_changes or review is not None
+    )
 
     try:
         content = generate_pr_content(
@@ -247,14 +390,18 @@ def main(argv: list[str] | None = None) -> int:
             sample_prompt=sample_prompt,
             sample_response=sample_response,
             label_taxonomy=label_taxonomy,
+            description_style=description_style,
+            review=review,
             **sampling,
         )
     except (openai.OpenAIError, anthropic.AnthropicError) as error:
         print(f"{PROVIDER_LABELS[provider]} request failed: {error}")
         return 1
 
-    description = content["description"]
-    if not description.strip():
+    if (
+        _needs_generated_description(existing, description_mode, content)
+        and not content["description"].strip()
+    ):
         print(
             "Model returned an empty description (this can happen with reasoning "
             f"models when max_tokens={max_tokens} is spent on hidden reasoning "
@@ -262,43 +409,51 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    if detect_breaking_changes and content["breaking_change"]:
-        note = (
-            content["breaking_change_notes"]
-            or "This change may break existing consumers."
-        )
-        description = f"⚠️ **Potential breaking change:** {note}\n\n{description}"
+    breaking_change = detect_breaking_changes and content["breaking_change"]
+    # An earlier note survives a run that doesn't detect one, including a
+    # plain-text fallback, which can't detect anything.
+    breaking_note = (
+        existing_content.format_breaking_note(content["breaking_change_notes"])
+        if breaking_change
+        else existing.note
+        if detect_breaking_changes
+        else ""
+    )
+    footer = (
+        existing_content.ATTRIBUTION_TEMPLATE.format(model=model) if attribution else ""
+    )
+    description = _resolve_description(
+        existing, description_mode, content, breaking_note, footer
+    )
 
-    if attribution:
-        description += ATTRIBUTION_TEMPLATE.format(model=model)
-
-    print(f"Generated pull request description: '{description}'")
     try:
-        github.update_description(args.pull_request_id, description)
+        if description is None or description == existing.raw:
+            print("Leaving the pull request description unchanged")
+        else:
+            print(f"Generated pull request description: '{description}'")
+            github.update_description(args.pull_request_id, description)
+
+        if generate_title and content["title"]:
+            print(f"Suggested pull request title: '{content['title']}'")
+            apply_title = title_mode == ALWAYS or (
+                title_mode == SMART
+                and (not review_title or content["title_action"] == "replace")
+            )
+            if apply_title and content["title"] != pull_request_title:
+                github.update_title(args.pull_request_id, content["title"])
+
+        _apply_labels(
+            github,
+            args.pull_request_id,
+            labels_mode,
+            set(content["labels"]) if enable_labels else set(),
+            {BREAKING_CHANGE_LABEL} if breaking_change else set(),
+            current_labels,
+            label_taxonomy,
+        )
     except GitHubApiError as error:
         print(str(error))
         return 1
-
-    if generate_title and content["title"]:
-        print(f"Suggested pull request title: '{content['title']}'")
-        if overwrite_title:
-            try:
-                github.update_title(args.pull_request_id, content["title"])
-            except GitHubApiError as error:
-                print(str(error))
-                return 1
-
-    if enable_labels:
-        labels_to_apply: set[str] = set(content["labels"])
-        if detect_breaking_changes and content["breaking_change"]:
-            labels_to_apply.add(BREAKING_CHANGE_LABEL)
-        if labels_to_apply:
-            try:
-                github.ensure_labels_exist(sorted(labels_to_apply))
-                github.add_labels(args.pull_request_id, sorted(labels_to_apply))
-            except GitHubApiError as error:
-                print(str(error))
-                return 1
 
     return 0
 

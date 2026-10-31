@@ -30,10 +30,11 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           openai_model: gpt-5-mini
           allowed_users: "your-github-username,maintainer-2"
-          overwrite_description: true
+          overwrite_description: smart
           generate_title: true
-          overwrite_title: true
+          overwrite_title: smart
           enable_labels: true
+          overwrite_labels: smart
           label_taxonomy: "bug,feature,enhancement,documentation,dependencies,refactor,test,chore,breaking-change"
           detect_breaking_changes: true
           max_diff_tokens: "8000"
@@ -46,13 +47,13 @@ jobs:
 2. Create a workflow under `.github/workflows/` using the example above.
 3. Add the minimum GitHub permissions needed for the feature set you want:
    - `pull-requests: write` for descriptions and titles
-   - `issues: write` when `enable_labels` is `true`
+   - `issues: write` when `enable_labels` or `detect_breaking_changes` is `true`
 4. Turn on optional features one at a time if you want to start simple:
    - `generate_title` for title suggestions
-   - `overwrite_title` to apply the suggested title
+   - `overwrite_title` to apply the suggested title (see [Existing content](#existing-content-always-never-or-smart))
    - `enable_labels` for label generation and label creation
    - `detect_breaking_changes` to warn on likely breaking changes
-   - `overwrite_description` to refresh the description on PR updates
+   - `overwrite_description` to refresh or review the description on PR updates
 5. Adjust `openai_model` (or `anthropic_model`), `max_tokens`, and `max_diff_tokens` if your repo has large diffs or you want more concise output.
 6. For Azure OpenAI, set `azure_endpoint` and `azure_openai_api_version` instead of using the public OpenAI key flow.
 
@@ -109,7 +110,8 @@ with either provider. Notes specific to Claude:
 | ----------------------- | ------------------------------------------------------------------------ | ------------------------ |
 | `pull_request_id`       | The ID of the pull request to use                                        | Extracted from metadata |
 | `allowed_users`         | Comma-separated GitHub usernames this Action will run for (case-insensitive, spaces ignored); empty runs for everyone | `` (all users) |
-| `overwrite_description` | Overwrite the PR description if it already exists (also means the Action runs on every PR update, not just when the description is empty) | `false` |
+| `overwrite_description` | `never`, `always` or `smart`: what to do with an existing description, see [Existing content](#existing-content-always-never-or-smart) | `never` |
+| `description_style`     | `rich` (emoji section headings and GitHub callouts) or `plain` (bold subheadings and bullets). Structured mode only | `rich` |
 | `openai_model`          | The [OpenAI model] to use when `provider` is `openai`, any model compatible with the chat completions endpoint | `gpt-5-mini` |
 | `temperature`           | Higher values make the model more creative (0-2). **Ignored for reasoning models** (`gpt-5*`, `gpt-6*`, `o1*`, `o3*`, `o4*`), which only support the default temperature, and always ignored with `provider: anthropic` | `0.6` |
 | `max_tokens`            | Maximum number of **output/completion tokens** the model may generate. Reasoning models spend part of this on hidden reasoning tokens before any visible output, so a large diff can need more headroom. | `2000` |
@@ -134,10 +136,50 @@ with either provider. Notes specific to Claude:
 | Input                      | Description                                                                                          | Default  |
 | --------------------------- | ------------------------------------------------------------------------------------------------------ | -------- |
 | `generate_title`           | Also ask the model to propose an improved PR title                                                    | `false`  |
-| `overwrite_title`          | Actually apply the proposed title (requires `generate_title`); otherwise the suggestion is only printed in the action log | `false`  |
+| `overwrite_title`          | `never`, `always` or `smart`: whether to apply the proposed title (requires `generate_title`); `never` only prints it in the action log | `never`  |
 | `enable_labels`            | Auto-label the PR from `label_taxonomy`, creating any missing labels in the repo first                | `false`  |
+| `overwrite_labels`         | `never`, `always` or `smart`: what to do when the PR already has labels (requires `enable_labels`) | `never`  |
 | `label_taxonomy`           | Comma-separated labels the model may choose from when `enable_labels` is set                          | `bug,feature,enhancement,documentation,dependencies,refactor,test,chore` |
-| `detect_breaking_changes`  | Flag likely breaking changes: prepends a note to the description, and (if `enable_labels` is also set) applies a `breaking-change` label | `false`  |
+| `detect_breaking_changes`  | Flag likely breaking changes on every run: adds a note to the top of the description and applies a `breaking-change` label, whatever the `overwrite_*` and `enable_labels` inputs say | `false`  |
+
+## Existing content: always, never or smart
+
+`overwrite_description`, `overwrite_title` and `overwrite_labels` each decide what
+happens to content the pull request already has. `true` and `false` still work, as
+`always` and `never`.
+
+| | `never` | `always` | `smart` |
+| - | - | - | - |
+| **Description** | Fills in a blank one, otherwise leaves it alone | Regenerates it on every run | Keeps, extends or replaces it, as the model judges |
+| **Title** | Prints the suggestion in the log | Applies the suggestion on every run | Replaces a placeholder, or a title the model judges vague or wrong |
+| **Labels** | Labels a PR with none, otherwise leaves them alone | Makes taxonomy labels match the model's choice | The model reviews the current labels and changes only what's clearly wrong or missing |
+
+What `smart` does with a description:
+
+| Existing description | Result |
+| -------------------- | ------ |
+| Blank, or only this Action's footer | Written from scratch, with no review |
+| Generic, an unfilled template, inaccurate, or too thin for the size of the change | Replaced |
+| Detailed, but a later push added something it doesn't cover | Extended: new text is appended in the same style, and the existing text is kept word for word |
+| Detailed and still accurate | Kept, with no write to GitHub |
+
+A title is always replaced under `smart`, without asking the model, if it's blank,
+a stock word such as `dev`, `wip` or `update`, or just the branch name.
+
+Some guarantees worth knowing:
+
+- **A failed review changes nothing.** If the structured request is rejected or its
+  reply is cut off, the existing description, title and labels all stay as they are.
+  Raise `max_tokens` if the log says the model gave no verdict.
+- **Only taxonomy labels are removed.** Labels outside `label_taxonomy` are never
+  touched, and an existing `breaking-change` label is never removed.
+- **Breaking changes always surface.** With `detect_breaking_changes` on, a detected
+  breaking change gets its note above the existing text and its label in every mode,
+  including `never`. The rest of the description and labels stay as the modes say.
+  The model therefore runs on every push, and a note or label already there stays
+  even if a later run doesn't detect one; remove it by hand if it no longer applies.
+- **`smart` runs the model on every push**, so it costs the same as `always`. It also
+  turns on structured mode, so `sample_prompt` and `sample_response` don't apply.
 
 ## Attribution
 
@@ -164,33 +206,37 @@ using `sample_prompt`/`sample_response` as a few-shot example and returning
 just a description. This is unchanged from earlier versions of this Action.
 
 Turning on any one of `generate_title`, `enable_labels`, or
-`detect_breaking_changes` switches to **structured mode**: a single request
+`detect_breaking_changes`, or a `smart` overwrite mode, switches to **structured mode**: a single request
 constrained by a JSON schema returns the description, title, labels, and
 breaking-change assessment together. `sample_prompt`/`sample_response` are not
 used in this mode — the schema itself constrains the response shape instead.
 
 In structured mode, the description is a short summary followed by a bulleted
-list of key points (grouped under subheadings for changes spanning multiple
-areas), and the title is Title Case, prefixed with its category — e.g.
+list of key points. With `description_style: rich`, larger changes get emoji section
+headings, `> [!IMPORTANT]` and `> [!WARNING]` callouts for what a reviewer must act
+on, and a `👀 Review focus` section; with `plain`, they get bold subheadings. When
+`smart` extends a description, the new text follows the existing style instead.
+The title is Title Case, prefixed with its category — e.g.
 `Enhancement: Add Dark Mode Toggle` or `Bug: Fix Crash on Empty Input`
 (`Breaking Change:` instead when `detect_breaking_changes` finds one).
 
 If the API rejects a structured request (for example, an older Azure
 deployment or API version without structured-output support), the Action
 falls back once to a classic plain-text request rather than failing the run,
-and logs a warning.
+and logs a warning. Under `smart`, that text is only used to fill a blank description.
 
 ## Permissions
 
 - Updating the description/title requires `pull-requests: write` (or
   equivalent classic `GITHUB_TOKEN` permissions — see
   [Troubleshooting](TROUBLESHOOTING.md)).
-- `enable_labels` additionally requires `issues: write`, since labels live on
+- `enable_labels` and `detect_breaking_changes` additionally require `issues: write`, since labels live on
   the issue object in the GitHub API, even for pull requests.
 
 ## A note on breaking-change detection
 
-`detect_breaking_changes` is judged by the model from the diff content alone,
+A detected breaking change appears as a `> [!CAUTION]` callout at the top of the
+description. `detect_breaking_changes` is judged by the model from the diff content alone,
 not by static analysis of your language or framework. Treat it as a helpful
 heuristic that can save you a re-read, not a guarantee — it can both miss
 real breaking changes and flag things that aren't.

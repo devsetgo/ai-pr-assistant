@@ -71,3 +71,21 @@ def test_dockerignore_lets_the_lock_into_the_build_context():
     assert (
         "!requirements.lock" in (REPO_ROOT / ".dockerignore").read_text().splitlines()
     )
+
+
+def test_action_image_tag_matches_the_package_version():
+    """The bump keeps these together; a mismatch runs the wrong code for users."""
+    version = re.search(
+        r'__version__ = "([^"]+)"',
+        (REPO_ROOT / "pr_description" / "__init__.py").read_text(),
+    ).group(1)
+    assert (
+        f"image: 'docker://ghcr.io/devsetgo/ai-pr-assistant:{version}'"
+        in (REPO_ROOT / "action.yml").read_text()
+    )
+
+
+def test_dogfood_workflow_builds_this_checkout_instead_of_the_release():
+    workflow = (REPO_ROOT / ".github/workflows/ai_pr_assistant.yml").read_text()
+    assert "image: 'Dockerfile'|\" action.yml" in workflow
+    assert workflow.index("action.yml\n") < workflow.index("uses: ./")

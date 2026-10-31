@@ -68,13 +68,18 @@ def _classic_messages(
 
 
 def _structured_messages(
-    pull_request_title: str, completion_prompt: str
+    pull_request_title: str,
+    completion_prompt: str,
+    review: llm.ReviewRequest | None = None,
 ) -> list[MessageParam]:
     """Build the message list for the JSON-schema-constrained structured mode."""
-    return [
+    messages: list[MessageParam] = [
         {"role": "user", "content": "Title of the pull request: " + pull_request_title},
         {"role": "user", "content": completion_prompt},
     ]
+    if review is not None:
+        messages.append({"role": "user", "content": llm.review_message(review)})
+    return messages
 
 
 def _response_text(response: anthropic.types.Message) -> str:
@@ -105,6 +110,8 @@ def generate_pr_content(
     sample_prompt: str = llm.SAMPLE_PROMPT,
     sample_response: str = llm.GOOD_SAMPLE_RESPONSE,
     label_taxonomy: Sequence[str] = (),
+    description_style: str = "rich",
+    review: llm.ReviewRequest | None = None,
 ) -> PRContent:
     """Ask Claude to generate PR content, in classic or structured mode.
 
@@ -131,6 +138,11 @@ def generate_pr_content(
         sample_response: Few-shot example response, classic mode only.
         label_taxonomy: Labels the model may choose from, structured mode
             only. Any model-chosen label outside this list is dropped.
+        description_style: ``"rich"`` or ``"plain"`` formatting, structured
+            mode only.
+        review: Existing content for the model to judge rather than replace.
+            A plain-text fallback carries no verdicts, so callers must treat
+            ``None`` actions as "leave it alone".
 
     Returns:
         The generated content, normalized to :class:`PRContent`.
@@ -143,14 +155,22 @@ def generate_pr_content(
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
-                system=llm.structured_system_prompt(label_taxonomy),
-                messages=_structured_messages(pull_request_title, completion_prompt),
+                system=llm.structured_system_prompt(
+                    label_taxonomy, description_style, review
+                ),
+                messages=_structured_messages(
+                    pull_request_title, completion_prompt, review
+                ),
                 # Unlike OpenAI's `response_format`, this takes the bare schema,
                 # not the {"name", "strict", "schema"} wrapper.
                 output_config={
                     "format": {
                         "type": "json_schema",
-                        "schema": llm.PR_CONTENT_SCHEMA["schema"],
+                        "schema": (
+                            llm.PR_CONTENT_SCHEMA
+                            if review is None
+                            else llm.PR_REVIEW_SCHEMA
+                        )["schema"],
                     }
                 },
             )

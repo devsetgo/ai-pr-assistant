@@ -60,6 +60,24 @@ review them even if you don't plan to touch your workflow file.
   pull requests with more files silently had the rest ignored. Pagination
   now follows GitHub's own `Link` header, with no fixed cap.
 
+### `overwrite_*` inputs gained a third mode
+
+`overwrite_description` and `overwrite_title` now take `always`, `never` or `smart`,
+and `overwrite_labels` is new. `true` and `false` keep working as `always` and `never`.
+Four behaviors differ from earlier versions:
+
+- `enable_labels` no longer adds labels to a PR that already has some unless
+  `overwrite_labels` is `always` or `smart`. Those two modes can also remove taxonomy
+  labels the model no longer chooses.
+- A description that already exists no longer stops the run: with
+  `overwrite_description: never`, title and label modes that allow it still apply.
+- `detect_breaking_changes` now always adds its note and label when it finds a
+  breaking change, even with `never` modes or `enable_labels` off. It runs the model on
+  every push and needs `issues: write`.
+- Structured-mode descriptions use emoji headings and callouts by default, and the
+  breaking-change note is now a `> [!CAUTION]` callout. Set `description_style: plain`
+  for the earlier description format.
+
 ### New, opt-in only
 
 Everything else added here — `generate_title`, `enable_labels`,

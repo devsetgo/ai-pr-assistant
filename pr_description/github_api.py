@@ -10,6 +10,7 @@ keeps description/title/label updates on one consistent code path.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -51,7 +52,7 @@ def _build_session() -> requests.Session:
         total=3,
         backoff_factor=1,
         status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=("GET", "POST", "PATCH"),
+        allowed_methods=("GET", "POST", "PATCH", "DELETE"),
     )
     adapter = HTTPAdapter(max_retries=retry)
     # Only HTTPS is ever legitimate here (GitHub's API, and GITHUB_API_URL,
@@ -230,4 +231,20 @@ class GitHubClient:
         if not response.ok:
             raise GitHubApiError(
                 f"Request to add labels failed: {_error_detail(response)}"
+            )
+
+    def remove_label(self, pull_request_id: int, label: str) -> None:
+        """Remove ``label`` from a pull request.
+
+        Raises:
+            GitHubApiError: If the request fails for a reason other than the
+                label already being gone (404), e.g. removed by someone else
+                since the pull request was read.
+        """
+        response = self.session.delete(
+            f"{self._issues_url(pull_request_id)}/labels/{quote(label, safe='')}"
+        )
+        if not response.ok and response.status_code != 404:
+            raise GitHubApiError(
+                f"Request to remove label '{label}' failed: {_error_detail(response)}"
             )
