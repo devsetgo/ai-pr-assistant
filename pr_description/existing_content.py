@@ -49,6 +49,8 @@ _BREAKING_NOTE_RE = re.compile(
     r"|⚠️ \*\*Potential breaking change:\*\*(?:.|\n(?!\n))*)\s*"
 )
 
+_MENTION_RE = re.compile(r"(?<![\w/.-])@[A-Za-z0-9][\w/-]*")
+
 #: Titles too generic to describe any change, compared after normalizing.
 _PLACEHOLDER_TITLES: frozenset[str] = frozenset(
     {
@@ -130,6 +132,17 @@ def format_breaking_note(note: str | None) -> str:
     message = note or "This change may break existing consumers."
     quoted = message.strip().replace("\n", "\n> ")
     return f"> [!CAUTION]\n> **Potential breaking change:** {quoted}"
+
+
+def neutralize_mentions(text: str) -> str:
+    """Put any ``@name`` outside code in backticks, so GitHub won't notify anyone.
+
+    Model output can mention things like ``@main`` that aren't meant as people.
+    Splitting on backticks leaves code spans and fences at the odd positions.
+    """
+    parts = text.split("`")
+    parts[::2] = [_MENTION_RE.sub(r"`\g<0>`", part) for part in parts[::2]]
+    return "`".join(parts)
 
 
 def compose_description(text: str, note: str, footer: str) -> str:

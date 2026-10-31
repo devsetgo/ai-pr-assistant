@@ -74,7 +74,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           openai_model: gpt-5-mini
-          max_tokens: '2000'
+          max_tokens: '6000'
           max_diff_tokens: '6000'
 ```
 

@@ -618,7 +618,7 @@ def test_smart_fallback_protects_everything(capsys, smart, generate_pr_content):
 
     assert cli.main(BASE_ARGV) == 0
 
-    assert "no verdict" in capsys.readouterr().out
+    assert "::warning::" in capsys.readouterr().out
     smart.update_description.assert_not_called()
     smart.update_title.assert_not_called()
     smart.add_labels.assert_not_called()
@@ -814,3 +814,36 @@ def test_regenerating_with_detection_off_drops_an_old_note(
 
     breaking.update_description.assert_called_once_with(42, "Adds a feature")
     breaking.add_labels.assert_not_called()
+
+
+def test_model_written_mentions_are_neutralized_everywhere(
+    monkeypatch, github_client, generate_pr_content
+):
+    monkeypatch.setenv("INPUT_ATTRIBUTION", "false")
+    monkeypatch.setenv("INPUT_GENERATE_TITLE", "true")
+    monkeypatch.setenv("INPUT_OVERWRITE_TITLE", "always")
+    monkeypatch.setenv("INPUT_DETECT_BREAKING_CHANGES", "true")
+    generate_pr_content.return_value.update(
+        {
+            "description": "Ask @alice",
+            "title": "Fix for @bob",
+            "breaking_change": True,
+            "breaking_change_notes": "Breaks @main",
+        }
+    )
+
+    assert cli.main(BASE_ARGV) == 0
+
+    written = github_client.update_description.call_args.args[1]
+    assert "Ask `@alice`" in written
+    assert "Breaks `@main`" in written
+    github_client.update_title.assert_called_once_with(42, "Fix for `@bob`")
+
+
+def test_existing_mentions_are_left_alone(smart, generate_pr_content):
+    smart.get_pull_request.return_value["body"] = "Thanks @alice"
+    _review_result(generate_pr_content, description_action="extend", description="X")
+
+    assert cli.main(BASE_ARGV) == 0
+
+    smart.update_description.assert_called_once_with(42, "Thanks @alice\n\nX")

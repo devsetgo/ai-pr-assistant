@@ -97,3 +97,18 @@ def test_split_description_keeps_a_body_merely_ending_in_sub_tags():
     body = "Human text <sub>small print</sub>"
 
     assert ec.split_description(body).text == body
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Breaks users on @main.", "Breaks users on `@main`."),
+        ("Use `@main` here", "Use `@main` here"),
+        ("```\n@main\n``` then @dev", "```\n@main\n``` then `@dev`"),
+        ("mail me@example.com", "mail me@example.com"),
+        ("uses actions/checkout@v7", "uses actions/checkout@v7"),
+        ("Ping @org/team", "Ping `@org/team`"),
+    ],
+)
+def test_neutralize_mentions(text, expected):
+    assert ec.neutralize_mentions(text) == expected

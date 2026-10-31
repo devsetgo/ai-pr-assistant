@@ -177,8 +177,6 @@ def _resolve_description(
         )
     # Keep. A breaking change newly found is still worth surfacing, but nothing
     # else about the text changes, the footer included.
-    if action is None:
-        print("The model gave no verdict on the description, leaving it unchanged")
     if breaking_note and not existing.note:
         return f"{breaking_note}\n\n{existing.raw}"
     return None
@@ -251,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     provider, api_key, model = selection
 
-    max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "2000"))
+    max_tokens = int(os.environ.get("INPUT_MAX_TOKENS", "6000"))
     temperature = float(os.environ.get("INPUT_TEMPERATURE", "0.6"))
     sample_prompt = os.environ.get("INPUT_SAMPLE_PROMPT") or llm.SAMPLE_PROMPT
     sample_response = (
@@ -395,6 +393,23 @@ def main(argv: list[str] | None = None) -> int:
     except (openai.OpenAIError, anthropic.AnthropicError) as error:
         print(f"{PROVIDER_LABELS[provider]} request failed: {error}")
         return 1
+
+    # A successful run hides this otherwise, so surface it on the workflow summary.
+    if review is not None and content["description_action"] is None:
+        print(
+            "::warning::The model gave no verdict, so existing content was left "
+            f"unchanged. If its reply was cut off, raise max_tokens (now {max_tokens})."
+        )
+
+    content["description"] = existing_content.neutralize_mentions(
+        content["description"]
+    )
+    if content["title"]:
+        content["title"] = existing_content.neutralize_mentions(content["title"])
+    if content["breaking_change_notes"]:
+        content["breaking_change_notes"] = existing_content.neutralize_mentions(
+            content["breaking_change_notes"]
+        )
 
     if (
         _needs_generated_description(existing, description_mode, content)

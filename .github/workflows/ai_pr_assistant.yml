@@ -50,7 +50,7 @@ jobs:
           description_style: rich               # rich (default: emoji headings, callouts) | plain
           openai_model: 'gpt-5-mini'          # default model; any chat-completions-compatible model works (gpt-4o-mini, gpt-4.1, etc.)
           temperature: '0.6'                  # creativity for classic (non-reasoning) models; ignored for reasoning models like our default gpt-5-mini
-          max_tokens: '6000'                  # output token budget; reasoning models spend part of this on hidden reasoning before any visible output, and this repo's PRs can be large
+          max_tokens: '6000'                  # output token budget; reasoning models spend part of this on hidden reasoning before any visible output
           max_diff_tokens: '6000'             # how much of the PR diff (by real token count) gets sent to the model
           exclude_patterns: '*.lock,package-lock.json,yarn.lock,pnpm-lock.yaml,*.min.js,*.svg,*.png,*.jpg,*.jpeg,*.gif,*.ico,dist/*,build/*'  # default noise filter for the diff
 

@@ -33,9 +33,9 @@ inputs:
     required: false
     default: 'claude-haiku-4-5-20251001'
   max_tokens:
-    description: 'Maximum number of output/completion tokens the model may generate. Reasoning models (gpt-5*, gpt-6*, o1*, o3*, o4*) spend part of this budget on hidden reasoning tokens before any visible output, so a large diff can need more headroom than a classic model would.'
+    description: 'Maximum number of output/completion tokens the model may generate. Reasoning models (gpt-5*, gpt-6*, o1*, o3*, o4*) spend part of this budget on hidden reasoning tokens before any visible output, so a large diff can need more headroom than a classic model would. This is a ceiling, not a cost per run.'
     required: false
-    default: '2000'
+    default: '6000'
   max_diff_tokens:
     description: 'Maximum number of tokens worth of PR diff to send to the model, counted with the real tokenizer for the selected OpenAI model (an approximation for Claude models)'
     required: false

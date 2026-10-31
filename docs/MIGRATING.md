@@ -38,7 +38,7 @@ review them even if you don't plan to touch your workflow file.
   parameters to those models is rejected by the API with a 400 error, which
   is what upstream would hit today if used with a `gpt-5*`/`o1*`/`o3*`
   model.
-- **`max_tokens` now defaults to `2000` (was `1000`).** It was always the
+- **`max_tokens` now defaults to `6000` (was `1000`).** It was always the
   output cap, not a prompt cap — the `action.yml` description previously (and
   misleadingly) called it "prompt tokens." The default was raised because
   reasoning models (`gpt-5*`, `gpt-6*`, `o1*`, `o3*`, `o4*`) spend part of this budget on
@@ -64,7 +64,7 @@ review them even if you don't plan to touch your workflow file.
 
 `overwrite_description` and `overwrite_title` now take `always`, `never` or `smart`,
 and `overwrite_labels` is new. `true` and `false` keep working as `always` and `never`.
-Four behaviors differ from earlier versions:
+Five behaviors differ from earlier versions:
 
 - `enable_labels` no longer adds labels to a PR that already has some unless
   `overwrite_labels` is `always` or `smart`. Those two modes can also remove taxonomy
@@ -74,6 +74,9 @@ Four behaviors differ from earlier versions:
 - `detect_breaking_changes` now always adds its note and label when it finds a
   breaking change, even with `never` modes or `enable_labels` off. It runs the model on
   every push and needs `issues: write`.
+- The `max_tokens` default rises from `2000` to `6000` if you came from an earlier
+  `devsetgo` version, since `smart` reviews on reasoning models could run out at the
+  old limit. A long reply can cost more.
 - Structured-mode descriptions use emoji headings and callouts by default, and the
   breaking-change note is now a `> [!CAUTION]` callout. Set `description_style: plain`
   for the earlier description format.

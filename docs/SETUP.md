@@ -93,7 +93,7 @@ jobs:
           label_taxonomy: "bug,feature,enhancement,documentation,dependencies,refactor,test,chore,breaking-change"
           detect_breaking_changes: true
           max_diff_tokens: "8000"
-          max_tokens: "2000"
+          max_tokens: "6000"
 ```
 
 ## Setup walkthrough

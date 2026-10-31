@@ -38,7 +38,7 @@ jobs:
           label_taxonomy: "bug,feature,enhancement,documentation,dependencies,refactor,test,chore,breaking-change"
           detect_breaking_changes: true
           max_diff_tokens: "8000"
-          max_tokens: "2000"
+          max_tokens: "6000"
 ```
 
 ## Setup walkthrough
@@ -114,7 +114,7 @@ with either provider. Notes specific to Claude:
 | `description_style`     | `rich` (emoji section headings and GitHub callouts) or `plain` (bold subheadings and bullets). Structured mode only | `rich` |
 | `openai_model`          | The [OpenAI model] to use when `provider` is `openai`, any model compatible with the chat completions endpoint | `gpt-5-mini` |
 | `temperature`           | Higher values make the model more creative (0-2). **Ignored for reasoning models** (`gpt-5*`, `gpt-6*`, `o1*`, `o3*`, `o4*`), which only support the default temperature, and always ignored with `provider: anthropic` | `0.6` |
-| `max_tokens`            | Maximum number of **output/completion tokens** the model may generate. Reasoning models spend part of this on hidden reasoning tokens before any visible output, so a large diff can need more headroom. | `2000` |
+| `max_tokens`            | Maximum number of **output/completion tokens** the model may generate. Reasoning models spend part of this on hidden reasoning tokens before any visible output, so a large diff can need more headroom. It's a ceiling, so a smaller reply costs less | `6000` |
 
 ## Diff handling
 
@@ -170,7 +170,8 @@ Some guarantees worth knowing:
 
 - **A failed review changes nothing.** If the structured request is rejected or its
   reply is cut off, the existing description, title and labels all stay as they are.
-  Raise `max_tokens` if the log says the model gave no verdict.
+  The run still passes, with a warning that the model gave no verdict; raise
+  `max_tokens` if its reply was cut off.
 - **Only taxonomy labels are removed.** Labels outside `label_taxonomy` are never
   touched, and an existing `breaking-change` label is never removed.
 - **Breaking changes always surface.** With `detect_breaking_changes` on, a detected
