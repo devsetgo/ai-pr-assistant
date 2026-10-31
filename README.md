@@ -31,7 +31,9 @@ like any proper pull request description should.
 
 By default it only runs when a PR description is not already provided, so it
 will never accidentally overwrite an existing one unless you opt in via
-`overwrite_description`. You can also restrict it to only run for specific
+`overwrite_description`: `always` regenerates it, and `smart` has the model keep a
+good description, extend it for changes it missed, or replace it if it's generic.
+Titles and labels have the same three modes. You can also restrict it to only run for specific
 PR authors, e.g. the repository's maintainers.
 
 Optionally, it can also:
@@ -72,7 +74,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           openai_model: gpt-5-mini
-          max_tokens: '2000'
+          max_tokens: '6000'
           max_diff_tokens: '6000'
 ```
 

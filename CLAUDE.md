@@ -88,6 +88,9 @@ checks the one for the selected `provider`.
   matching `exclude_patterns` (glob), then token-budgets the rest using `tiktoken` against the
   target model's real encoding (`max_diff_tokens`), truncating the file that crosses the budget
   rather than dropping it.
+- `existing_content.py` — provider-neutral rules for content the PR already has: the `always`/`never`/`smart`
+  modes behind the `overwrite_*` inputs, splitting this action's breaking note and footer off a body (so they
+  don't stack across runs; old and new note formats, CRLF from the web UI), and placeholder-title detection.
 - `llm_anthropic.py` — the Claude counterpart of `llm.py` (`provider: anthropic`, direct Anthropic
   API only): same classic/structured paths and the same `PRContent` result, reusing `llm.py`'s
   prompts, schema (`structured_system_prompt`, `PR_CONTENT_SCHEMA["schema"]` — the bare schema, not
@@ -103,18 +106,25 @@ checks the one for the selected `provider`.
     description/title/labels/breaking-change together. Falls back once to classic on
     `openai.BadRequestError` (e.g. an older Azure deployment without structured-output support).
   - `generate_pr_content()` picks classic vs. structured based on whether the caller set
-    `structured=True`; `cli.py` sets it to `generate_title or enable_labels or detect_breaking_changes`.
+    `structured=True`; `cli.py` sets it to `generate_title or enable_labels or detect_breaking_changes`,
+    or when a `smart` mode has existing content to review.
+  - **Review** (`review=ReviewRequest(...)`): sends the existing content and uses `PR_REVIEW_SCHEMA`, adding
+    `description_action`/`title_action` verdicts. On `extend`, `description` is only the text to append, so a
+    person's words can't be rewritten or lost to truncation. The classic fallback carries `None` verdicts and
+    `cli.py` must treat those as "leave it alone": **never let a fallback overwrite reviewed content.**
   - **Model-family quirk, don't regress this**: "reasoning" models (`gpt-5*`, `gpt-6*`, `o1*`, `o3*`, `o4*` —
     see `REASONING_MODEL_PREFIXES`) reject a custom `temperature` and require
     `max_completion_tokens` instead of `max_tokens` on Chat Completions. `_completion_kwargs()` is
     the single place that branches on this — route any new request-building code through it rather
     than calling `chat.completions.create()` directly with hardcoded params.
-- `cli.py` — orchestrates the above and owns all the gating logic: skip if a description already
-  exists and `overwrite_description` is false, skip if the PR author isn't in `allowed_users`,
-  only write the title if `generate_title and overwrite_title`, only touch labels if `enable_labels`.
+- `cli.py` — orchestrates the above and owns all the gating logic: skip the model if no field may change,
+  skip if the PR author isn't in `allowed_users`, apply each field's overwrite mode, only propose a title if
+  `generate_title`, only touch labels if `enable_labels`. Label removal is limited to `label_taxonomy` minus
+  `breaking-change`, and an empty label choice changes nothing (a fallback looks identical). A detected breaking
+  change is the one exception to the modes: its note and label are always written, and never removed automatically.
 
 **Tests** mock `requests`/the OpenAI client via `unittest.mock` — no live network calls. `tests/`
-mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `test_llm_anthropic.py`, `test_diff_filter.py`).
+mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `test_llm_anthropic.py`, `test_diff_filter.py`, `test_existing_content.py`).
 
 ## CI/CD
 
@@ -131,7 +141,12 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
   and `breaking-change` label actually produce.
 - There is deliberately no version-bump workflow: `make bump` runs `bumpcalver` locally, creating the commit and
   tag; pushing them (`git push origin HEAD <tag>`) is a separate, manual step (`bumpcalver` does not push).
-- `.github/workflows/ai_pr_assistant.yml` — dogfoods the Action on this repo's own PRs (every input listed).
+- `.github/workflows/publish-image.yml` — on a version tag push, builds the image and publishes it to
+  `ghcr.io/devsetgo/ai-pr-assistant:<tag>`. `action.yml` names that image, so users pull it rather than building
+  the Dockerfile, and the package page's download count is the project's rough usage signal. **Push the bump's tag
+  and let this finish before merging the bump to `main`**, or `@main` users get an image that doesn't exist yet.
+- `.github/workflows/ai_pr_assistant.yml` — dogfoods the Action on this repo's own PRs (every input listed). It
+  rewrites `action.yml` to build from the `Dockerfile` first, so PRs run their own code, not the last release.
 - `.github/workflows/docs.yml` — regenerates `docs/index.md` from the README and builds the Zensical site
   (`zensical build --clean --strict`) on docs-related PRs/pushes to `main`; deploys to GitHub Pages only on a
   release or manual dispatch (the build job uploads the artifact, deploy reuses it).
@@ -143,6 +158,6 @@ mirrors the package 1:1 (`test_cli.py`, `test_github_api.py`, `test_llm.py`, `te
 `docs/CHANGELOG.md` is a symlink to the root `CHANGELOG.md` (bumpcalver writes the root file), so the docs
 site's Changelog page never goes stale.
 
-`pyproject.toml`'s `[tool.bumpcalver]` targets three files that must stay in sync when the version
+`pyproject.toml`'s `[tool.bumpcalver]` targets four files that must stay in sync when the version
 format changes: `pyproject.toml` (`project.version`), `pr_description/__init__.py` (`__version__`),
-and `sonar-project.properties` (`sonar.projectVersion`).
+`sonar-project.properties` (`sonar.projectVersion`), and `action.yml` (the image tag).

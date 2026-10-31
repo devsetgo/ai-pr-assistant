@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 
 ## Latest Changes
+### 26.10.31-001
+
+_Changes since 26.09.20-002._
+
+#### What's Changed
+* Increased the default `max_tokens`, added warnings for missing verdicts, and neutralized mentions.
+* Improved logging for structured request fallbacks and increased the dogfood token budget.
+* Refactored overwrite logic to resolve Sonar findings.
+* Fixed the dogfood workflow to produce valid YAML.
+* **Breaking change:** Added always/never/smart overwrite modes and published the image to GHCR.
+
+Generated Date: 2026 October 31, 17:15
+
 ### 26.09.20-002
 
 _Changes since 26.09.20-001._
