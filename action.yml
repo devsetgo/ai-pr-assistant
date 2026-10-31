@@ -107,7 +107,7 @@ inputs:
 
 runs:
   using: 'docker'
-  image: 'docker://ghcr.io/devsetgo/ai-pr-assistant:26.09.20-002'
+  image: 'docker://ghcr.io/devsetgo/ai-pr-assistant:26.10.31-001'
 branding:
   icon: 'cpu'
   color: 'green'
