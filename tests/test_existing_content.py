@@ -85,3 +85,15 @@ def test_format_breaking_note_defaults_and_quotes_every_line():
 )
 def test_is_placeholder_title(title, branch, expected):
     assert ec.is_placeholder_title(title, branch) is expected
+
+
+def test_split_description_keeps_text_written_after_the_footer():
+    body = f"Human text{FOOTER}\n\nMore from a person"
+
+    assert ec.split_description(body).text == body
+
+
+def test_split_description_keeps_a_body_merely_ending_in_sub_tags():
+    body = "Human text <sub>small print</sub>"
+
+    assert ec.split_description(body).text == body

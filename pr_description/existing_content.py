@@ -40,9 +40,8 @@ ATTRIBUTION_TEMPLATE: str = (
     "with {model}</sub>"
 )
 
-_ATTRIBUTION_RE = re.compile(
-    r"\s*---\n<sub>Created using \[devsetgo/ai-pr-assistant\].*?</sub>\s*\Z", re.DOTALL
-)
+_ATTRIBUTION_START: str = "---\n<sub>Created using [devsetgo/ai-pr-assistant]"
+_ATTRIBUTION_END: str = "</sub>"
 #: The current callout form, then the emoji line older versions of this action
 #: wrote, so descriptions from those versions don't end up with two notes.
 _BREAKING_NOTE_RE = re.compile(
@@ -98,6 +97,20 @@ def parse_overwrite_mode(value: str) -> str | None:
     return _MODE_ALIASES.get(value.strip().lower())
 
 
+def _strip_attribution(text: str) -> str:
+    """Remove the attribution footer, if it is the last thing in ``text``.
+
+    String searches rather than a regex, because a body is user-controlled and
+    a pattern starting with ``\\s*`` backtracks badly on long runs of whitespace.
+    """
+    stripped = text.rstrip()
+    start = stripped.rfind(_ATTRIBUTION_START)
+    end = stripped.find(_ATTRIBUTION_END, start)
+    if start == -1 or end + len(_ATTRIBUTION_END) != len(stripped):
+        return text
+    return stripped[:start].rstrip()
+
+
 def split_description(body: str | None) -> ExistingDescription:
     """Separate this action's note and footer from the rest of ``body``.
 
@@ -105,7 +118,7 @@ def split_description(body: str | None) -> ExistingDescription:
     would otherwise defeat both the patterns here and later equality checks.
     """
     raw = (body or "").replace("\r\n", "\n")
-    without_footer = _ATTRIBUTION_RE.sub("", raw)
+    without_footer = _strip_attribution(raw)
     match = _BREAKING_NOTE_RE.match(without_footer)
     note = match.group(0).strip() if match else ""
     text = without_footer[match.end() :] if match else without_footer

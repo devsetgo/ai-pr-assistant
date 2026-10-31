@@ -343,15 +343,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     review_description = bool(existing.text) and description_mode == SMART
     review_labels = enable_labels and labels_mode == SMART and bool(current_labels)
-    review = (
-        llm.ReviewRequest(
+    review: llm.ReviewRequest | None = None
+    if review_description or review_title or review_labels:
+        review = llm.ReviewRequest(
             description=existing.text if review_description else None,
             title=pull_request_title if review_title else None,
             labels=sorted(current_labels) if review_labels else None,
         )
-        if review_description or review_title or review_labels
-        else None
-    )
 
     try:
         pull_request_files = github.get_pull_request_files(args.pull_request_id)
@@ -412,13 +410,13 @@ def main(argv: list[str] | None = None) -> int:
     breaking_change = detect_breaking_changes and content["breaking_change"]
     # An earlier note survives a run that doesn't detect one, including a
     # plain-text fallback, which can't detect anything.
-    breaking_note = (
-        existing_content.format_breaking_note(content["breaking_change_notes"])
-        if breaking_change
-        else existing.note
-        if detect_breaking_changes
-        else ""
-    )
+    breaking_note = ""
+    if breaking_change:
+        breaking_note = existing_content.format_breaking_note(
+            content["breaking_change_notes"]
+        )
+    elif detect_breaking_changes:
+        breaking_note = existing.note
     footer = (
         existing_content.ATTRIBUTION_TEMPLATE.format(model=model) if attribution else ""
     )
